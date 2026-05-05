@@ -40,10 +40,8 @@ The implementation will be delivered through GitHub pull requests. For each mile
 ### Infrastructure
 
 - Docker and Docker Compose for local development
-- Multi-stage Dockerfiles for backend and frontend
-- Nginx or Caddy as the production frontend/static reverse proxy
+- Development Dockerfiles for backend and frontend
 - PostgreSQL service in Compose
-- Optional Redis service only if async background jobs become necessary after the synchronous MVP
 - GitHub Actions for CI, Docker image build validation, tests, linting, type checks, migrations, and E2E tests
 
 ## 3. Gemini API Decision
@@ -240,7 +238,7 @@ PostgreSQL
 
 ## 11. CI/CD Strategy
 
-GitHub Actions will run on every PR into `dev` and `main`:
+GitHub Actions will run on every PR into `dev`:
 
 - Backend lint: Ruff
 - Backend format check: Ruff format
@@ -250,7 +248,7 @@ GitHub Actions will run on every PR into `dev` and `main`:
 - Frontend lint: ESLint
 - Frontend format check: Prettier
 - Frontend unit tests: Vitest
-- Frontend build: Vite production build
+- Frontend validation: TypeScript check and Vite build
 - Docker build: backend and frontend images
 - Compose smoke test: API, frontend, and PostgreSQL boot successfully
 - Alembic migration check
@@ -292,7 +290,7 @@ Features and commits:
 - Commit 2: Add backend FastAPI skeleton with health endpoint and settings management.
 - Commit 3: Add frontend Vite React TypeScript skeleton.
 - Commit 4: Add PostgreSQL Docker Compose service and environment examples.
-- Commit 5: Add backend and frontend Dockerfiles with multi-stage builds.
+- Commit 5: Add backend and frontend development Dockerfiles.
 - Commit 6: Add README quickstart with Docker Compose instructions.
 
 Acceptance criteria:
@@ -533,7 +531,7 @@ GitHub Actions required:
 
 Branch: `feature/10-e2e-ci-hardening`
 
-Goal: make the PR workflow reliable and production-like.
+Goal: make the PR workflow reliable for local development and review.
 
 Features and commits:
 
@@ -555,56 +553,31 @@ GitHub Actions required:
 
 - All required checks are green before merge.
 
-### PR 11 - Production Readiness and Deployment Documentation
+### PR 11 - Documentation and Local Handoff
 
-Branch: `feature/11-production-readiness`
+Branch: `feature/11-docs-handoff`
 
-Goal: prepare the app for reliable handoff and deployment.
+Goal: prepare the app for reliable local handoff.
 
 Features and commits:
 
-- Commit 1: Add production Compose file and deployment notes.
-- Commit 2: Add environment variable documentation and secret handling guidance.
+- Commit 1: Add environment variable documentation and secret handling guidance.
+- Commit 2: Add local setup and troubleshooting notes.
 - Commit 3: Add structured logging and request IDs.
 - Commit 4: Add basic rate-limiting middleware configuration.
-- Commit 5: Add database backup/restore notes for local and production-like environments.
+- Commit 5: Add database backup/restore notes for the local development environment.
 - Commit 6: Add final README architecture, API, and troubleshooting sections.
 - Commit 7: Add final manual QA checklist.
 
 Acceptance criteria:
 
 - New developers can run the app from the README.
-- Deployment configuration is documented.
 - Required secrets are clear.
 - Logs and errors are useful enough to debug failed imports.
 
 GitHub Actions required:
 
 - Full CI remains green.
-- Production Docker build succeeds.
-
-### PR 12 - Release Merge to Main
-
-Branch: `release/v1-menu-importer`
-
-Goal: merge the completed application from `dev` into `main`.
-
-Features and commits:
-
-- Commit 1: Update changelog and release notes.
-- Commit 2: Run final fixture evaluation and document results.
-- Commit 3: Final README polish and screenshots if available.
-
-Acceptance criteria:
-
-- `dev` contains all completed milestones.
-- Full GitHub Actions suite passes.
-- Release PR targets `main`.
-- Codex merges the release PR after checks pass.
-
-GitHub Actions required:
-
-- All required checks green on release PR.
 
 ## 14. Testing Strategy
 
@@ -655,7 +628,7 @@ The application is complete when:
 - It is fully dockerized.
 - It uses PostgreSQL.
 - It has documented setup, AI choice, and execution instructions.
-- GitHub Actions pass on the final release PR.
+- GitHub Actions pass on the completed `dev` branch.
 
 ## 16. Risks and Mitigations
 

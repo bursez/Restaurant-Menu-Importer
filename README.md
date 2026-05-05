@@ -1,6 +1,6 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 1 provides the monorepo skeleton, FastAPI health API, Vite React frontend, PostgreSQL service, Dockerfiles, and baseline CI.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 1 provides the monorepo skeleton, FastAPI health API, Vite React frontend, PostgreSQL service, development Dockerfiles, and baseline CI.
 
 The AI extraction, import persistence, schema validation, URL/PDF processing, Gemini integration, and evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
 
@@ -78,7 +78,7 @@ Included:
 - `GET /api/health`
 - React/Vite first screen that calls backend health
 - PostgreSQL Docker Compose service
-- Backend and frontend multi-stage Dockerfiles
+- Backend and frontend development Dockerfiles
 - GitHub Actions jobs for backend smoke tests, frontend build, and Docker image builds
 
 Not included yet:
