@@ -13,6 +13,10 @@ class TextImportCreate(BaseModel):
     source_name: str | None = Field(default=None, max_length=255)
 
 
+class UrlImportCreate(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class ExtractedMenuRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
