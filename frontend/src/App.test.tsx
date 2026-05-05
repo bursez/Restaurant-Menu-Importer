@@ -35,6 +35,28 @@ const textImport = {
   ],
 };
 
+const urlImport = {
+  id: "44444444-4444-4444-4444-444444444444",
+  input_type: "url",
+  source_value: "Menu\nBruschetta 6,50",
+  source_filename: "https://restaurant.example/menu",
+  status: "pending",
+  error_message: null,
+  model_used: null,
+  duration_ms: null,
+  created_at: createdAt,
+  updated_at: createdAt,
+  events: [
+    {
+      id: "55555555-5555-5555-5555-555555555555",
+      stage: "created",
+      message: "URL import created",
+      event_metadata: { requested_url: "https://restaurant.example/menu" },
+      created_at: createdAt,
+    },
+  ],
+};
+
 function jsonResponse(payload: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(payload), {
     headers: { "Content-Type": "application/json" },
@@ -93,5 +115,31 @@ describe("App", () => {
     });
     expect(await screen.findByText("AI extraction pending")).toBeInTheDocument();
     expect(screen.getByText("Stored source text is ready for the Gemini extraction milestone.")).toBeInTheDocument();
+  });
+
+  it("creates a URL import", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(urlImport, { status: 201 }))
+      .mockResolvedValueOnce(jsonResponse([urlImport]));
+
+    render(<App />);
+
+    await screen.findByText("No imports yet.");
+    await userEvent.click(screen.getByRole("tab", { name: "URL" }));
+    await userEvent.type(screen.getByLabelText("Menu page URL"), "https://restaurant.example/menu");
+    await userEvent.click(screen.getByRole("button", { name: "Create import" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/imports/url",
+        expect.objectContaining({
+          body: JSON.stringify({ url: "https://restaurant.example/menu" }),
+          method: "POST",
+        }),
+      );
+    });
+    expect(await screen.findAllByText("https://restaurant.example/menu")).toHaveLength(2);
+    expect(screen.getByText(/Bruschetta 6,50/)).toBeInTheDocument();
   });
 });
