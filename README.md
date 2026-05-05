@@ -1,8 +1,8 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 4 supports pasted text and `.txt` / `.md` uploads, persists normalized source text in PostgreSQL, records placeholder import events before AI extraction exists, and shows import history plus detail shells in the React UI.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 5 supports pasted text, `.txt` / `.md` uploads, and public URL imports for HTML menu pages. URL imports validate outbound targets for SSRF safety, fetch pages with redirect/timeout/size limits, extract readable HTML menu text, record likely PDF menu links for later processing, persist normalized source text in PostgreSQL, and show import history plus detail shells in the React UI.
 
-URL/PDF processing, Gemini integration, JSON editing/export, and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
+PDF extraction, Gemini integration, JSON editing/export, and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Stack
 
@@ -37,10 +37,13 @@ The frontend uses the Vite `/api` proxy when running in Compose.
 
 - `POST /api/imports/text`: create an import from pasted menu text.
 - `POST /api/imports/file`: create an import from a UTF-8 `.txt` or `.md` upload.
+- `POST /api/imports/url`: create an import from a public HTTP/HTTPS HTML menu page.
 - `GET /api/imports`: list recent imports.
 - `GET /api/imports/{id}`: inspect status, source metadata, and event history.
 
-Text and file imports are persisted with `pending` status because Gemini extraction is introduced in a later milestone.
+Imports are persisted with `pending` status because Gemini extraction is introduced in a later milestone.
+
+URL imports reject localhost, private/internal network targets, link-local addresses, metadata IPs, unsupported schemes, and credentialed URLs. The fetcher follows a small number of validated redirects, enforces timeouts and response size limits, and stores cleaned HTML text as the import source. Likely PDF menu links discovered inside HTML pages are recorded in import event metadata, but direct PDF extraction starts in the PDF/OCR milestone.
 
 ## Local Backend
 
@@ -88,22 +91,27 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 2 work lives on `feature/02-import-persistence`.
 - Milestone 3 work lives on `feature/03-schema-validation`.
 - Milestone 4 work lives on `feature/04-text-file-imports`.
+- Milestone 5 work lives on `feature/05-url-html-extraction`.
 
-## Milestone 4 Scope
+## Milestone 5 Scope
 
 Included:
 
 - Pasted text import endpoint
 - `.txt` and `.md` upload endpoint
-- Text normalization for line endings, spacing, bullet characters, and blank lines
-- Source metadata persistence for pasted text labels and file names
-- React import tabs for pasted text and file uploads
+- URL import endpoint for public HTML menu pages
+- URL validation with SSRF protections for private/internal targets
+- HTTP fetching with redirect, timeout, size, and content-type handling
+- HTML text extraction using readability and BeautifulSoup
+- PDF menu-link discovery recorded in import events
+- Text normalization for line endings, spacing, bullet characters, blank lines, and extracted HTML text
+- Source metadata persistence for pasted text labels, file names, and URL final destinations
+- React import tabs for URL, pasted text, and file uploads
 - Import history and detail shell with AI extraction placeholder state
-- Backend API tests and frontend component tests
+- Backend API/security tests and frontend component tests
 
 Not included yet:
 
 - Gemini API integration
-- URL imports
 - PDF extraction or OCR fallback
 - JSON editing/export or evaluation workflows
