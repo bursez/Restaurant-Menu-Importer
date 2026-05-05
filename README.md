@@ -1,13 +1,13 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 2 adds backend import persistence with PostgreSQL, SQLAlchemy async sessions, Alembic migrations, import event logs, and read APIs for import history.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 4 supports pasted text and `.txt` / `.md` uploads, persists normalized source text in PostgreSQL, records placeholder import events before AI extraction exists, and shows import history plus detail shells in the React UI.
 
-The AI extraction, import persistence, schema validation, URL/PDF processing, Gemini integration, and evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
+URL/PDF processing, Gemini integration, JSON editing/export, and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Stack
 
 - Backend: Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy async, Alembic
-- Frontend: Node 22, React, TypeScript, Vite
+- Frontend: Node 22, React, TypeScript, Vite, Vitest, React Testing Library
 - Infrastructure: Docker Compose, PostgreSQL 16
 - CI: GitHub Actions smoke/build checks
 
@@ -31,7 +31,16 @@ Then open:
 - Backend health: http://localhost:8000/api/health
 - PostgreSQL: `localhost:5432`
 
-The frontend checks `/api/health` through the Vite proxy when running in Compose.
+The frontend uses the Vite `/api` proxy when running in Compose.
+
+## Import APIs
+
+- `POST /api/imports/text`: create an import from pasted menu text.
+- `POST /api/imports/file`: create an import from a UTF-8 `.txt` or `.md` upload.
+- `GET /api/imports`: list recent imports.
+- `GET /api/imports/{id}`: inspect status, source metadata, and event history.
+
+Text and file imports are persisted with `pending` status because Gemini extraction is introduced in a later milestone.
 
 ## Local Backend
 
@@ -41,7 +50,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install ".[dev]"
-pytest
+python -m pytest
 uvicorn app.main:app --reload
 ```
 
@@ -58,6 +67,7 @@ alembic upgrade head
 cd frontend
 npm install
 npm run dev
+npm run test
 npm run build
 ```
 
@@ -76,21 +86,24 @@ This repository was initialized according to section 17 of the implementation pl
 - `dev` contains the initial project planning docs.
 - Milestone 1 work lives on `feature/01-bootstrap-docker`.
 - Milestone 2 work lives on `feature/02-import-persistence`.
-- A Git remote is not configured in this local workspace yet, so pushing the branch and opening the PR still requires adding the GitHub remote.
+- Milestone 3 work lives on `feature/03-schema-validation`.
+- Milestone 4 work lives on `feature/04-text-file-imports`.
 
-## Milestone 2 Scope
+## Milestone 4 Scope
 
 Included:
 
-- Async SQLAlchemy database setup
-- Alembic migration for `imports`, `extracted_menus`, and `import_events`
-- Import service/repository methods for creation, status updates, output persistence, and event logging
-- `GET /api/imports` and `GET /api/imports/{id}`
-- PostgreSQL-backed backend tests and migration check in CI
+- Pasted text import endpoint
+- `.txt` and `.md` upload endpoint
+- Text normalization for line endings, spacing, bullet characters, and blank lines
+- Source metadata persistence for pasted text labels and file names
+- React import tabs for pasted text and file uploads
+- Import history and detail shell with AI extraction placeholder state
+- Backend API tests and frontend component tests
 
 Not included yet:
 
 - Gemini API integration
-- Menu schema validation
-- Text/file/url submission endpoints
-- URL, PDF, OCR, frontend history UI, or evaluation workflows
+- URL imports
+- PDF extraction or OCR fallback
+- JSON editing/export or evaluation workflows

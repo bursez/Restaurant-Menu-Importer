@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ExtractedMenu, Import, ImportEvent
 from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.repositories.imports import ImportRepository
+from app.services.text_imports import normalize_import_text
 
 
 class ImportNotFoundError(Exception):
@@ -41,11 +42,73 @@ class ImportService:
             message=f"{input_type.value} import created",
         )
         await self.session.commit()
-        await self.session.refresh(import_record)
-        return import_record
+        return await self.get_import(import_record.id)
 
     async def list_imports(self, *, limit: int = 50, offset: int = 0) -> Sequence[Import]:
         return await self.repository.list_imports(limit=limit, offset=offset)
+
+    async def create_text_import(
+        self,
+        *,
+        text: str,
+        source_name: str | None = None,
+    ) -> Import:
+        normalized_text = normalize_import_text(text)
+        import_record = await self.repository.create_import(
+            input_type=ImportInputType.TEXT,
+            source_value=normalized_text,
+            source_filename=source_name,
+            status=ImportStatus.PENDING,
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="created",
+            message="Text import created",
+            event_metadata={
+                "character_count": len(normalized_text),
+                "line_count": normalized_text.count("\n") + 1,
+            },
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="ai_extraction",
+            message="AI extraction is not available yet for text imports",
+            event_metadata={"placeholder": True},
+        )
+        await self.session.commit()
+        return await self.get_import(import_record.id)
+
+    async def create_file_import(
+        self,
+        *,
+        text: str,
+        filename: str,
+    ) -> Import:
+        normalized_text = normalize_import_text(text)
+        import_record = await self.repository.create_import(
+            input_type=ImportInputType.FILE,
+            source_value=normalized_text,
+            source_filename=filename,
+            status=ImportStatus.PENDING,
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="created",
+            message="File import created",
+            event_metadata={
+                "character_count": len(normalized_text),
+                "line_count": normalized_text.count("\n") + 1,
+                "filename": filename,
+            },
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="ai_extraction",
+            message="AI extraction is not available yet for file imports",
+            event_metadata={"placeholder": True},
+        )
+        await self.session.commit()
+        return await self.get_import(import_record.id)
 
     async def get_import(self, import_id: uuid.UUID) -> Import:
         import_record = await self.repository.get_import(import_id, include_children=True)

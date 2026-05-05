@@ -6,6 +6,68 @@ from app.services.imports import ImportService
 
 
 @pytest.mark.asyncio
+async def test_create_text_import_normalizes_and_persists_text(app) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/imports/text",
+            json={
+                "text": " Antipasti\r\n\r\n\r\n• Bruschetta\u00a0  € 6,50 ",
+                "source_name": "dinner menu",
+            },
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["input_type"] == "text"
+    assert payload["source_filename"] == "dinner menu"
+    assert payload["source_value"] == "Antipasti\n\n- Bruschetta € 6,50"
+    assert payload["status"] == "pending"
+    assert [event["stage"] for event in payload["events"]] == ["created", "ai_extraction"]
+    assert payload["events"][1]["event_metadata"] == {"placeholder": True}
+
+
+@pytest.mark.asyncio
+async def test_create_text_import_rejects_blank_text(app) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post("/api/imports/text", json={"text": " \n \t "})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Import text cannot be empty"}
+
+
+@pytest.mark.asyncio
+async def test_create_file_import_accepts_markdown(app) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/imports/file",
+            files={"file": ("menu.md", b"# Menu\n\nMargherita 7.50", "text/markdown")},
+        )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert payload["input_type"] == "file"
+    assert payload["source_filename"] == "menu.md"
+    assert payload["source_value"] == "# Menu\n\nMargherita 7.50"
+    assert payload["status"] == "pending"
+
+
+@pytest.mark.asyncio
+async def test_create_file_import_rejects_unsupported_extensions(app) -> None:
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/imports/file",
+            files={"file": ("menu.pdf", b"%PDF", "application/pdf")},
+        )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Only .txt and .md menu files are supported"}
+
+
+@pytest.mark.asyncio
 async def test_list_and_get_imports(app, db_session) -> None:
     service = ImportService(db_session)
     import_record = await service.create_import(

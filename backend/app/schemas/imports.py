@@ -8,6 +8,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TextImportCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=200_000)
+    source_name: str | None = Field(default=None, max_length=255)
+
+
 class ExtractedMenuRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
