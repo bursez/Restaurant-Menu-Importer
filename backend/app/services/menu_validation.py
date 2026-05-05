@@ -11,7 +11,7 @@ PRICE_PATTERN = re.compile(
     r"""
     (?P<currency>€|eur)?\s*
     (?P<amount>\d{1,3}(?:[.,]\d{2})?)
-    (?:\s*/\s*(?P<unit>[a-zA-Z]{1,8}))?
+    (?:/(?P<unit>[a-zA-Z]{1,8}))?
     """,
     re.IGNORECASE | re.VERBOSE,
 )
