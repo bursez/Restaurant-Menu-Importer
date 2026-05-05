@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_name: str = "restaurant-menu-importer-api"
     environment: str = "development"
-    database_url: str = "postgresql+asyncpg://menu:menu@localhost:5432/menu_importer"
+    database_url: str = "postgresql+asyncpg://menu:menu@127.0.0.1:5432/menu_importer"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     model_config = SettingsConfigDict(

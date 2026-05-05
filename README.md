@@ -1,12 +1,12 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 1 provides the monorepo skeleton, FastAPI health API, Vite React frontend, PostgreSQL service, development Dockerfiles, and baseline CI.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 2 adds backend import persistence with PostgreSQL, SQLAlchemy async sessions, Alembic migrations, import event logs, and read APIs for import history.
 
 The AI extraction, import persistence, schema validation, URL/PDF processing, Gemini integration, and evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Stack
 
-- Backend: Python 3.12, FastAPI, Pydantic Settings
+- Backend: Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy async, Alembic
 - Frontend: Node 22, React, TypeScript, Vite
 - Infrastructure: Docker Compose, PostgreSQL 16
 - CI: GitHub Actions smoke/build checks
@@ -45,6 +45,13 @@ pytest
 uvicorn app.main:app --reload
 ```
 
+Run migrations against your configured database before using persistence APIs:
+
+```sh
+cd backend
+alembic upgrade head
+```
+
 ## Local Frontend
 
 ```sh
@@ -68,23 +75,22 @@ This repository was initialized according to section 17 of the implementation pl
 
 - `dev` contains the initial project planning docs.
 - Milestone 1 work lives on `feature/01-bootstrap-docker`.
+- Milestone 2 work lives on `feature/02-import-persistence`.
 - A Git remote is not configured in this local workspace yet, so pushing the branch and opening the PR still requires adding the GitHub remote.
 
-## Milestone 1 Scope
+## Milestone 2 Scope
 
 Included:
 
-- Monorepo directories: `backend/`, `frontend/`, `docs/`, `tests/`, `.github/`
-- `GET /api/health`
-- React/Vite first screen that calls backend health
-- PostgreSQL Docker Compose service
-- Backend and frontend development Dockerfiles
-- GitHub Actions jobs for backend smoke tests, frontend build, and Docker image builds
+- Async SQLAlchemy database setup
+- Alembic migration for `imports`, `extracted_menus`, and `import_events`
+- Import service/repository methods for creation, status updates, output persistence, and event logging
+- `GET /api/imports` and `GET /api/imports/{id}`
+- PostgreSQL-backed backend tests and migration check in CI
 
 Not included yet:
 
-- Import APIs
-- Database migrations or persistence
 - Gemini API integration
 - Menu schema validation
-- URL, PDF, OCR, or evaluation workflows
+- Text/file/url submission endpoints
+- URL, PDF, OCR, frontend history UI, or evaluation workflows

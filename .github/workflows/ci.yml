@@ -12,6 +12,20 @@ jobs:
   backend-smoke:
     name: Backend smoke tests
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: menu_importer_test
+          POSTGRES_USER: menu
+          POSTGRES_PASSWORD: menu
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U menu -d menu_importer_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -27,7 +41,14 @@ jobs:
       - name: Install backend dependencies
         run: python -m pip install --upgrade pip && python -m pip install ".[dev]"
 
+      - name: Run database migrations
+        env:
+          APP_DATABASE_URL: postgresql+asyncpg://menu:menu@127.0.0.1:5432/menu_importer_test
+        run: alembic upgrade head
+
       - name: Run backend smoke tests
+        env:
+          APP_DATABASE_URL: postgresql+asyncpg://menu:menu@127.0.0.1:5432/menu_importer_test
         run: pytest
 
   frontend-build:
