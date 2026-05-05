@@ -17,7 +17,7 @@ async def list_imports(
     session: AsyncSession = Depends(get_db_session),
 ) -> list[ImportSummaryRead]:
     imports = await ImportService(session).list_imports(limit=limit, offset=offset)
-    return list(imports)
+    return [ImportSummaryRead.model_validate(import_record) for import_record in imports]
 
 
 @router.get("/{import_id}", response_model=ImportDetailRead)
@@ -26,9 +26,10 @@ async def get_import(
     session: AsyncSession = Depends(get_db_session),
 ) -> ImportDetailRead:
     try:
-        return await ImportService(session).get_import(import_id)
+        import_record = await ImportService(session).get_import(import_id)
     except ImportNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Import not found",
         ) from exc
+    return ImportDetailRead.model_validate(import_record)
