@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -42,12 +41,12 @@ class MenuVariant(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
-    price: Decimal | None = None
+    price: float | None = None
     price_text: str | None = None
 
     @field_validator("price")
     @classmethod
-    def price_cannot_be_negative(cls, value: Decimal | None) -> Decimal | None:
+    def price_cannot_be_negative(cls, value: float | None) -> float | None:
         if value is not None and value < 0:
             msg = "Price cannot be negative"
             raise ValueError(msg)
@@ -59,7 +58,7 @@ class MenuItem(BaseModel):
 
     name: str = Field(min_length=1)
     description: str | None = None
-    price: Decimal | None = None
+    price: float | None = None
     price_text: str | None = None
     allergens: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
@@ -67,7 +66,7 @@ class MenuItem(BaseModel):
 
     @field_validator("price")
     @classmethod
-    def price_cannot_be_negative(cls, value: Decimal | None) -> Decimal | None:
+    def price_cannot_be_negative(cls, value: float | None) -> float | None:
         if value is not None and value < 0:
             msg = "Price cannot be negative"
             raise ValueError(msg)
@@ -89,7 +88,7 @@ class CanonicalMenu(BaseModel):
     language: str | None = Field(default=None, min_length=2, max_length=16)
     source: MenuSource
     categories: list[MenuCategory] = Field(default_factory=list)
-    confidence_score: Decimal | None = Field(default=None, ge=0, le=1)
+    confidence_score: float | None = Field(default=None, ge=0, le=1)
     validation_warnings: list[ValidationWarning] = Field(default_factory=list)
 
     @field_validator("currency")
