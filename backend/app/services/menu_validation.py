@@ -18,8 +18,16 @@ PRICE_PATTERN = re.compile(
 
 
 def validate_canonical_menu(raw_menu: dict[str, Any]) -> CanonicalMenu:
-    normalized = normalize_menu_prices(raw_menu)
+    normalized = normalize_menu_structure(raw_menu)
+    normalized = normalize_menu_prices(normalized)
     return CanonicalMenu.model_validate(normalized)
+
+
+def normalize_menu_structure(raw_menu: dict[str, Any]) -> dict[str, Any]:
+    menu = deepcopy(raw_menu)
+    _cleanup_menu_text(menu)
+    menu["categories"] = _deduplicate_categories(_list_of_dicts(menu.get("categories")))
+    return menu
 
 
 def normalize_menu_prices(raw_menu: dict[str, Any]) -> dict[str, Any]:
@@ -56,6 +64,82 @@ def parse_price_segments(price_text: str | None) -> list[dict[str, Any]]:
             }
         )
     return segments
+
+
+def _cleanup_menu_text(menu: dict[str, Any]) -> None:
+    _clean_string_field(menu, "restaurant")
+    _clean_string_field(menu, "currency", uppercase=True)
+    _clean_string_field(menu, "language", lowercase=True)
+    source = menu.get("source")
+    if isinstance(source, dict):
+        _clean_string_field(source, "value")
+
+    for category in _list_of_dicts(menu.get("categories")):
+        _clean_string_field(category, "name")
+        for item in _list_of_dicts(category.get("items")):
+            _clean_string_field(item, "name")
+            _clean_string_field(item, "description")
+            _clean_string_field(item, "price_text")
+            item["allergens"] = _clean_string_list(item.get("allergens"))
+            item["tags"] = _clean_string_list(item.get("tags"))
+            for variant in _list_of_dicts(item.get("variants")):
+                _clean_string_field(variant, "name")
+                _clean_string_field(variant, "price_text")
+
+
+def _deduplicate_categories(categories: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for category in categories:
+        key = _dedupe_key(category.get("name"))
+        if not key:
+            continue
+        category["items"] = _deduplicate_items(_list_of_dicts(category.get("items")))
+        if key not in deduped:
+            deduped[key] = category
+            continue
+        existing_items = _list_of_dicts(deduped[key].get("items"))
+        existing_items.extend(_list_of_dicts(category.get("items")))
+        deduped[key]["items"] = _deduplicate_items(existing_items)
+    return list(deduped.values())
+
+
+def _deduplicate_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for item in items:
+        key = _item_dedupe_key(item)
+        if not key:
+            continue
+        if key not in deduped:
+            deduped[key] = item
+            continue
+        deduped[key] = _merge_item(deduped[key], item)
+    return list(deduped.values())
+
+
+def _merge_item(existing: dict[str, Any], duplicate: dict[str, Any]) -> dict[str, Any]:
+    for field in ("description", "price_text", "price"):
+        if existing.get(field) in (None, "") and duplicate.get(field) not in (None, ""):
+            existing[field] = duplicate[field]
+    existing["allergens"] = _clean_string_list([*_raw_list(existing.get("allergens")), *_raw_list(duplicate.get("allergens"))])
+    existing["tags"] = _clean_string_list([*_raw_list(existing.get("tags")), *_raw_list(duplicate.get("tags"))])
+    variants = [*_list_of_dicts(existing.get("variants")), *_list_of_dicts(duplicate.get("variants"))]
+    existing["variants"] = _deduplicate_variants(variants)
+    return existing
+
+
+def _deduplicate_variants(variants: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: dict[str, dict[str, Any]] = {}
+    for variant in variants:
+        key = "|".join(
+            [
+                _dedupe_key(variant.get("name")),
+                _dedupe_key(variant.get("price_text")),
+                str(variant.get("price") or ""),
+            ]
+        )
+        if key.strip("|"):
+            deduped.setdefault(key, variant)
+    return list(deduped.values())
 
 
 def _normalize_price_fields(node: dict[str, Any]) -> None:
@@ -112,10 +196,57 @@ def _variant_name(index: int, price: dict[str, Any]) -> str:
     return f"Option {index}"
 
 
+def _clean_string_field(node: dict[str, Any], field: str, *, uppercase: bool = False, lowercase: bool = False) -> None:
+    value = node.get(field)
+    if not isinstance(value, str):
+        return
+    cleaned = _collapse_whitespace(value)
+    if uppercase:
+        cleaned = cleaned.upper()
+    if lowercase:
+        cleaned = cleaned.lower()
+    node[field] = cleaned
+
+
+def _clean_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    cleaned: dict[str, str] = {}
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        normalized = _collapse_whitespace(item).lower()
+        if normalized:
+            cleaned.setdefault(normalized, normalized)
+    return list(cleaned.values())
+
+
+def _collapse_whitespace(value: str) -> str:
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def _item_dedupe_key(item: dict[str, Any]) -> str:
+    return "|".join(
+        [
+            _dedupe_key(item.get("name")),
+            _dedupe_key(item.get("price_text")),
+            str(item.get("price") or ""),
+        ]
+    ).strip("|")
+
+
+def _dedupe_key(value: Any) -> str:
+    return _collapse_whitespace(value).casefold() if isinstance(value, str) else ""
+
+
 def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def _raw_list(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
 
 
 def _optional_string(value: Any) -> str | None:
