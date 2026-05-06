@@ -86,3 +86,22 @@ def _needs_layout_fallback(result: PdfExtractionResult) -> bool:
         return True
     price_hits = PRICE_PATTERN.findall(result.text)
     return bool(price_hits) and "\n" not in result.text
+
+
+def extract_pdf_text_with_pdfplumber(pdf_content: bytes) -> PdfExtractionResult:
+    try:
+        with pdfplumber.open(BytesIO(pdf_content)) as document:
+            pages = [
+                _page_text(
+                    index + 1,
+                    page.extract_text(layout=True, x_tolerance=2, y_tolerance=4) or "",
+                )
+                for index, page in enumerate(document.pages)
+            ]
+    except Exception as exc:
+        raise PdfExtractionError("PDF layout text could not be extracted") from exc
+
+    text_pages = [page for page in pages if page.text]
+    if not text_pages:
+        raise PdfExtractionError("PDF layout text is empty")
+    return _result_from_pages(pages=text_pages, method="pdfplumber")
