@@ -124,7 +124,8 @@ h3 {
 
 .import-panel,
 .history-panel,
-.detail-panel {
+.detail-panel,
+.evaluation-panel {
   background: #fffdfa;
   border: 1px solid #d8d0c4;
   border-radius: 8px;
@@ -191,6 +192,13 @@ h3 {
 .panel-heading span {
   color: #60686e;
   font-weight: 800;
+}
+
+.panel-heading p {
+  color: #60686e;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  margin-top: 0.16rem;
 }
 
 .history-list {
@@ -473,6 +481,95 @@ pre {
   color: #4a4f53;
 }
 
+.evaluation-panel {
+  overflow: hidden;
+}
+
+.evaluation-grid {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.evaluation-cases,
+.evaluation-results {
+  border: 1px solid #e3dbcf;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.case-list {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.case-item {
+  border: 1px solid #eee7dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.5rem;
+  min-height: 9rem;
+  padding: 0.85rem;
+}
+
+.case-item div {
+  align-items: start;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.case-item small,
+td small {
+  color: #60686e;
+  display: block;
+  font-weight: 700;
+  margin-top: 0.18rem;
+}
+
+.case-item p {
+  color: #4a4f53;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.case-item span {
+  align-self: end;
+  color: #176b5b;
+  font-weight: 900;
+}
+
+.metric-strip {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric-strip article {
+  background: #f3f8f6;
+  border: 1px solid #c9ded7;
+  border-radius: 8px;
+  display: grid;
+  gap: 0.3rem;
+  min-height: 5.2rem;
+  padding: 0.8rem;
+}
+
+.metric-strip span {
+  color: #4a4f53;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metric-strip strong {
+  color: #176b5b;
+  font-size: 1.45rem;
+}
+
 @media (max-width: 780px) {
   .app-shell {
     padding: 1rem;
@@ -503,5 +600,9 @@ pre {
 
   .json-textarea {
     min-height: 320px;
+  }
+
+  .metric-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
