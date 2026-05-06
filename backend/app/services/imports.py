@@ -11,8 +11,9 @@ from app.db.models import ExtractedMenu, Import, ImportEvent
 from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.repositories.imports import ImportRepository
 from app.services.html_extraction import discover_pdf_links, extract_html_text
+from app.services.pdf_extraction import extract_pdf_text
 from app.services.text_imports import normalize_import_text
-from app.services.url_fetching import fetch_url, is_html_response
+from app.services.url_fetching import fetch_url, is_html_response, is_pdf_response
 
 
 class UrlImportError(ValueError):
@@ -118,14 +119,38 @@ class ImportService:
 
     async def create_url_import(self, *, url: str) -> Import:
         fetched_url = await fetch_url(url)
-        if not is_html_response(fetched_url):
-            raise UrlImportError("Only HTML menu pages are supported before the PDF extraction milestone")
 
-        extraction = extract_html_text(fetched_url.content)
-        pdf_links = discover_pdf_links(fetched_url.content, base_url=fetched_url.final_url)
+        pdf_links: list[str] = []
+        extract_message: str
+        extract_metadata: dict[str, Any]
+        if is_html_response(fetched_url):
+            extraction = extract_html_text(fetched_url.content)
+            source_text = extraction.text
+            pdf_links = discover_pdf_links(fetched_url.content, base_url=fetched_url.final_url)
+            extract_message = "HTML menu text extracted"
+            extract_metadata = {
+                "character_count": len(source_text),
+                "line_count": source_text.count("\n") + 1,
+                "title": extraction.title,
+                "pdf_links": pdf_links,
+            }
+        elif is_pdf_response(fetched_url):
+            extraction = extract_pdf_text(fetched_url.content)
+            source_text = extraction.text
+            extract_message = "PDF menu text extracted"
+            extract_metadata = {
+                "character_count": extraction.character_count,
+                "line_count": source_text.count("\n") + 1,
+                "page_count": extraction.page_count,
+                "method": extraction.method,
+                "warnings": extraction.warnings,
+            }
+        else:
+            raise UrlImportError("Only HTML menu pages and PDF menu URLs are supported")
+
         import_record = await self.repository.create_import(
             input_type=ImportInputType.URL,
-            source_value=extraction.text,
+            source_value=source_text,
             source_filename=fetched_url.final_url,
             status=ImportStatus.PENDING,
         )
@@ -152,13 +177,8 @@ class ImportService:
         await self.repository.add_event(
             import_record,
             stage="extract",
-            message="HTML menu text extracted",
-            event_metadata={
-                "character_count": len(extraction.text),
-                "line_count": extraction.text.count("\n") + 1,
-                "title": extraction.title,
-                "pdf_links": pdf_links,
-            },
+            message=extract_message,
+            event_metadata=extract_metadata,
         )
         await self.repository.add_event(
             import_record,

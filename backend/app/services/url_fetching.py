@@ -84,3 +84,9 @@ def is_html_response(fetched_url: FetchedUrl) -> bool:
         return True
     prefix = fetched_url.content[:200].lstrip().lower()
     return prefix.startswith(b"<!doctype html") or prefix.startswith(b"<html")
+
+
+def is_pdf_response(fetched_url: FetchedUrl) -> bool:
+    if fetched_url.content_type == "application/pdf":
+        return True
+    return fetched_url.content.startswith(b"%PDF-")

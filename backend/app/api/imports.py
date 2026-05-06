@@ -7,6 +7,7 @@ from app.db.session import get_db_session
 from app.schemas.imports import ImportDetailRead, ImportSummaryRead, TextImportCreate, UrlImportCreate
 from app.services.html_extraction import HtmlExtractionError
 from app.services.imports import ImportNotFoundError, ImportService, UrlImportError
+from app.services.pdf_extraction import PdfExtractionError
 from app.services.text_imports import MAX_IMPORT_TEXT_LENGTH, TextImportValidationError, validate_text_filename
 from app.services.url_fetching import UrlFetchError
 from app.services.url_security import UrlValidationError
@@ -59,7 +60,7 @@ async def create_url_import(
 ) -> ImportDetailRead:
     try:
         import_record = await ImportService(session).create_url_import(url=payload.url)
-    except (UrlValidationError, UrlFetchError, UrlImportError, HtmlExtractionError) as exc:
+    except (UrlValidationError, UrlFetchError, UrlImportError, HtmlExtractionError, PdfExtractionError) as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return ImportDetailRead.model_validate(import_record)
 
