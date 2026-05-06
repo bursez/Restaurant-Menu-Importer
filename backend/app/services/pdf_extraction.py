@@ -1,0 +1,88 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from io import BytesIO
+import re
+import subprocess
+import tempfile
+
+import fitz
+from PIL import Image
+import pdfplumber
+import pytesseract
+
+from app.services.text_imports import normalize_import_text
+
+
+MIN_TEXT_CHARACTERS = 40
+MAX_OCR_PAGES = 20
+PRICE_PATTERN = re.compile(r"(?:€\s*)?\d{1,3}(?:[.,]\d{2})?(?:\s*€)?")
+
+
+class PdfExtractionError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class PdfPageText:
+    page_number: int
+    text: str
+    line_count: int
+
+
+@dataclass(frozen=True)
+class PdfExtractionResult:
+    text: str
+    pages: list[PdfPageText]
+    method: str
+    warnings: list[str] = field(default_factory=list)
+
+    @property
+    def character_count(self) -> int:
+        return len(self.text)
+
+    @property
+    def page_count(self) -> int:
+        return len(self.pages)
+
+
+def _format_pages(pages: list[PdfPageText]) -> str:
+    sections: list[str] = []
+    for page in pages:
+        if page.text:
+            sections.append(f"[Page {page.page_number}]\n{page.text}")
+    return "\n\n".join(sections)
+
+
+def _page_text(page_number: int, text: str) -> PdfPageText:
+    normalized = normalize_import_text(text) if text.strip() else ""
+    return PdfPageText(
+        page_number=page_number,
+        text=normalized,
+        line_count=normalized.count("\n") + 1 if normalized else 0,
+    )
+
+
+def _result_from_pages(*, pages: list[PdfPageText], method: str, warnings: list[str] | None = None) -> PdfExtractionResult:
+    text = normalize_import_text(_format_pages(pages))
+    return PdfExtractionResult(text=text, pages=pages, method=method, warnings=warnings or [])
+
+
+def extract_pdf_text_with_pymupdf(pdf_content: bytes) -> PdfExtractionResult:
+    try:
+        document = fitz.open(stream=pdf_content, filetype="pdf")
+    except Exception as exc:
+        raise PdfExtractionError("PDF content could not be opened") from exc
+
+    pages = [_page_text(index + 1, page.get_text("text")) for index, page in enumerate(document)]
+    text_pages = [page for page in pages if page.text]
+    if not text_pages:
+        raise PdfExtractionError("PDF text layer is empty")
+    return _result_from_pages(pages=text_pages, method="pymupdf")
+
+
+def _needs_layout_fallback(result: PdfExtractionResult) -> bool:
+    if result.character_count < MIN_TEXT_CHARACTERS:
+        return True
+    price_hits = PRICE_PATTERN.findall(result.text)
+    return bool(price_hits) and "\n" not in result.text
