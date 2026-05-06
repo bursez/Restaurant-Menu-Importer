@@ -22,9 +22,11 @@ async def test_create_text_import_normalizes_and_persists_text(app) -> None:
     assert payload["input_type"] == "text"
     assert payload["source_filename"] == "dinner menu"
     assert payload["source_value"] == "Antipasti\n\n- Bruschetta € 6,50"
-    assert payload["status"] == "pending"
-    assert [event["stage"] for event in payload["events"]] == ["created", "ai_extraction"]
-    assert payload["events"][1]["event_metadata"] == {"placeholder": True}
+    assert payload["status"] == "succeeded"
+    assert payload["model_used"] == "fake-gemini-menu-extractor"
+    assert payload["extracted_menu"]["restaurant_name"] == "Antipasti"
+    assert payload["extracted_menu"]["canonical_json"]["categories"][0]["items"][0]["price"] == 6.5
+    assert [event["stage"] for event in payload["events"]] == ["created", "ai_extraction", "ai_extraction"]
 
 
 @pytest.mark.asyncio
@@ -51,7 +53,8 @@ async def test_create_file_import_accepts_markdown(app) -> None:
     assert payload["input_type"] == "file"
     assert payload["source_filename"] == "menu.md"
     assert payload["source_value"] == "# Menu\n\nMargherita 7.50"
-    assert payload["status"] == "pending"
+    assert payload["status"] == "succeeded"
+    assert payload["extracted_menu"]["canonical_json"]["categories"][0]["items"][0]["name"] == "Margherita"
 
 
 @pytest.mark.asyncio

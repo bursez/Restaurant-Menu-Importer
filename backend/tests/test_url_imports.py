@@ -134,8 +134,16 @@ async def test_create_url_import_extracts_html_and_records_pdf_links(
     assert payload["input_type"] == "url"
     assert payload["source_filename"] == "https://restaurant.example/menu"
     assert "Bruschetta 6,50" in payload["source_value"]
-    assert [event["stage"] for event in payload["events"]] == ["created", "fetch", "extract", "ai_extraction"]
+    assert payload["status"] == "succeeded"
+    assert [event["stage"] for event in payload["events"]] == [
+        "created",
+        "fetch",
+        "extract",
+        "ai_extraction",
+        "ai_extraction",
+    ]
     assert payload["events"][2]["event_metadata"]["pdf_links"] == ["https://restaurant.example/menu.pdf"]
+    assert payload["extracted_menu"]["canonical_json"]["source"]["type"] == "url"
 
 
 @pytest.mark.asyncio
