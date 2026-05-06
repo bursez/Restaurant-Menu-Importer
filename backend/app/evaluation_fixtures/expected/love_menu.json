@@ -1,0 +1,38 @@
+{
+  "restaurant": "Love Menu",
+  "currency": "EUR",
+  "language": "it",
+  "source": { "type": "url", "value": "https://linktr.ee/lovemenu" },
+  "categories": [
+    {
+      "name": "Poke",
+      "items": [
+        {
+          "name": "Salmon Love",
+          "description": "Riso, salmone, avocado e edamame",
+          "price": 13.5,
+          "price_text": "€ 13,50",
+          "allergens": ["fish", "soy"],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "Dessert",
+      "items": [
+        {
+          "name": "Mochi",
+          "description": null,
+          "price": 6.0,
+          "price_text": "€ 6,00",
+          "allergens": [],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    }
+  ],
+  "confidence_score": 0.86,
+  "validation_warnings": []
+}

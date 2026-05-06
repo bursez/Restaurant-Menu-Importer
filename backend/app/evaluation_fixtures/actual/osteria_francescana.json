@@ -1,0 +1,16 @@
+{
+  "restaurant": "Osteria Francescana",
+  "currency": "EUR",
+  "language": "en",
+  "source": { "type": "url", "value": "https://osteriafrancescana.it/menu" },
+  "categories": [
+    { "name": "Tasting Menu", "items": [
+      { "name": "Beautiful, Psychedelic, Spin-painted Veal", "description": null, "price": null, "price_text": null, "allergens": [], "tags": [], "variants": [] },
+      { "name": "Oops! I dropped the lemon tart", "description": null, "price": null, "price_text": null, "allergens": [], "tags": [], "variants": [] }
+    ] }
+  ],
+  "confidence_score": 0.74,
+  "validation_warnings": [
+    { "code": "missing_price", "message": "Tasting menu dishes do not expose per-item prices.", "path": null, "context": {} }
+  ]
+}

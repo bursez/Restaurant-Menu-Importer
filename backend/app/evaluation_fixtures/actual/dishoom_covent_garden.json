@@ -1,0 +1,16 @@
+{
+  "restaurant": "Dishoom Covent Garden",
+  "currency": "GBP",
+  "language": "en",
+  "source": { "type": "url", "value": "https://www.dishoom.com/covent-garden/menu/" },
+  "categories": [
+    { "name": "Breakfast", "items": [
+      { "name": "Bacon Naan Roll", "description": "Naan, cream cheese, chilli tomato jam", "price": 11.5, "price_text": "£11.50", "allergens": ["gluten", "milk"], "tags": [], "variants": [] }
+    ] },
+    { "name": "Small Plates", "items": [
+      { "name": "Okra Fries", "description": "Fine lady's fingers for dipping", "price": 6.9, "price_text": "£6.90", "allergens": [], "tags": ["vegetarian"], "variants": [] }
+    ] }
+  ],
+  "confidence_score": 0.84,
+  "validation_warnings": []
+}

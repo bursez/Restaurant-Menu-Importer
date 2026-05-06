@@ -1,0 +1,33 @@
+{
+  "restaurant": "Pizzeria Da Michele",
+  "currency": "EUR",
+  "language": "it",
+  "source": { "type": "url", "value": "https://www.damichele.net/menu.pdf" },
+  "categories": [
+    {
+      "name": "Pizze",
+      "items": [
+        {
+          "name": "Margherita",
+          "description": "Pomodoro, fior di latte, basilico e olio",
+          "price": 8.0,
+          "price_text": "€ 8,00",
+          "allergens": ["gluten", "milk"],
+          "tags": ["vegetarian"],
+          "variants": []
+        },
+        {
+          "name": "Marinara",
+          "description": "Pomodoro, aglio, origano e olio",
+          "price": 7.0,
+          "price_text": "€ 7,00",
+          "allergens": ["gluten"],
+          "tags": ["vegan"],
+          "variants": []
+        }
+      ]
+    }
+  ],
+  "confidence_score": 0.78,
+  "validation_warnings": []
+}

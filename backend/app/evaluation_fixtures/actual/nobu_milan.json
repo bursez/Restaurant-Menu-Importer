@@ -1,0 +1,41 @@
+{
+  "restaurant": "Nobu Milan",
+  "currency": "EUR",
+  "language": "it-en",
+  "source": { "type": "url", "value": "https://www.noburestaurants.com/milan/menu.pdf" },
+  "categories": [
+    {
+      "name": "Nobu Cold Dishes",
+      "items": [
+        {
+          "name": "Yellowtail Sashimi with Jalapeno",
+          "description": "Ricciola con jalapeno",
+          "price": 32.0,
+          "price_text": "32",
+          "allergens": ["fish"],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "Sushi Rolls",
+      "items": [
+        {
+          "name": "Tuna Roll",
+          "description": null,
+          "price": null,
+          "price_text": "18 / 25",
+          "allergens": ["fish"],
+          "tags": [],
+          "variants": [
+            { "name": "Option 1", "price": 18.0, "price_text": "18" },
+            { "name": "Option 2", "price": 25.0, "price_text": "25" }
+          ]
+        }
+      ]
+    }
+  ],
+  "confidence_score": 0.88,
+  "validation_warnings": []
+}

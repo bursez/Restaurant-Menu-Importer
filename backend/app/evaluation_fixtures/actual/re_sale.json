@@ -1,0 +1,47 @@
+{
+  "restaurant": "Re Sale",
+  "currency": "EUR",
+  "language": "it",
+  "source": { "type": "url", "value": "https://www.resaleristorante.it/menu.pdf" },
+  "categories": [
+    {
+      "name": "Antipasti",
+      "items": [
+        {
+          "name": "Tartare di tonno",
+          "description": "Tonno, avocado e salsa ponzu",
+          "price": 18.0,
+          "price_text": "€ 18,00",
+          "allergens": ["fish"],
+          "tags": [],
+          "variants": []
+        },
+        {
+          "name": "Parmigiana di melanzane",
+          "description": null,
+          "price": 14.0,
+          "price_text": "€ 14,00",
+          "allergens": ["milk"],
+          "tags": ["vegetarian"],
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "Primi",
+      "items": [
+        {
+          "name": "Spaghettone alle vongole",
+          "description": null,
+          "price": 20.0,
+          "price_text": "€ 20,00",
+          "allergens": ["gluten", "shellfish"],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    }
+  ],
+  "confidence_score": 0.9,
+  "validation_warnings": []
+}

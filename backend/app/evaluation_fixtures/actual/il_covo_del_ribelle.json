@@ -1,0 +1,38 @@
+{
+  "restaurant": "Il Covo del Ribelle",
+  "currency": "EUR",
+  "language": "it",
+  "source": { "type": "url", "value": "https://www.ilcovodelribelle.it/menu.pdf" },
+  "categories": [
+    {
+      "name": "Antipasti",
+      "items": [
+        {
+          "name": "Tagliere del Ribelle",
+          "description": "Salumi, formaggi e confetture",
+          "price": 16.0,
+          "price_text": "€ 16,00",
+          "allergens": ["milk"],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "Hamburger",
+      "items": [
+        {
+          "name": "Ribelle Burger",
+          "description": "Manzo, cheddar, bacon e salsa della casa",
+          "price": 15.0,
+          "price_text": "€ 15,00",
+          "allergens": ["gluten", "milk"],
+          "tags": [],
+          "variants": []
+        }
+      ]
+    }
+  ],
+  "confidence_score": 0.82,
+  "validation_warnings": []
+}
