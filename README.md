@@ -1,12 +1,12 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 5 supports pasted text, `.txt` / `.md` uploads, and public URL imports for HTML menu pages. URL imports validate outbound targets for SSRF safety, fetch pages with redirect/timeout/size limits, extract readable HTML menu text, record likely PDF menu links for later processing, persist normalized source text in PostgreSQL, and show import history plus detail shells in the React UI.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 6 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, and direct PDF menu URL imports. URL imports validate outbound targets for SSRF safety, fetch pages or PDFs with redirect/timeout/size limits, extract readable HTML or page-aware PDF text, fall back through layout-aware PDF extraction and OCR for empty text layers, persist normalized source text in PostgreSQL, and show import history plus detail shells in the React UI.
 
-PDF extraction, Gemini integration, JSON editing/export, and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
+Gemini integration, JSON editing/export, and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Stack
 
-- Backend: Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy async, Alembic
+- Backend: Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy async, Alembic, PyMuPDF, pdfplumber, OCRmyPDF/Tesseract
 - Frontend: Node 22, React, TypeScript, Vite, Vitest, React Testing Library
 - Infrastructure: Docker Compose, PostgreSQL 16
 - CI: GitHub Actions smoke/build checks
@@ -37,13 +37,17 @@ The frontend uses the Vite `/api` proxy when running in Compose.
 
 - `POST /api/imports/text`: create an import from pasted menu text.
 - `POST /api/imports/file`: create an import from a UTF-8 `.txt` or `.md` upload.
-- `POST /api/imports/url`: create an import from a public HTTP/HTTPS HTML menu page.
+- `POST /api/imports/url`: create an import from a public HTTP/HTTPS HTML menu page or direct PDF menu URL.
 - `GET /api/imports`: list recent imports.
 - `GET /api/imports/{id}`: inspect status, source metadata, and event history.
 
 Imports are persisted with `pending` status because Gemini extraction is introduced in a later milestone.
 
-URL imports reject localhost, private/internal network targets, link-local addresses, metadata IPs, unsupported schemes, and credentialed URLs. The fetcher follows a small number of validated redirects, enforces timeouts and response size limits, and stores cleaned HTML text as the import source. Likely PDF menu links discovered inside HTML pages are recorded in import event metadata, but direct PDF extraction starts in the PDF/OCR milestone.
+URL imports reject localhost, private/internal network targets, link-local addresses, metadata IPs, unsupported schemes, and credentialed URLs. The fetcher follows a small number of validated redirects, enforces timeouts and response size limits, and stores cleaned HTML or PDF text as the import source. Likely PDF menu links discovered inside HTML pages are recorded in import event metadata.
+
+PDF URL imports are detected from `Content-Type: application/pdf` or the PDF file signature. Text-layer PDFs are extracted with PyMuPDF into `[Page N]` sections. Sparse or layout-sensitive text can fall back to pdfplumber, and empty-text PDFs use OCRmyPDF/Tesseract OCR. Repeated headers, footers, legends, and legal/allergen lines are removed when they repeat across pages.
+
+The backend container and CI install OCR system packages. For local backend development outside Docker, install `ocrmypdf` and `tesseract` on your system if you want to exercise scanned PDF fallback locally.
 
 ## Local Backend
 
@@ -92,26 +96,33 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 3 work lives on `feature/03-schema-validation`.
 - Milestone 4 work lives on `feature/04-text-file-imports`.
 - Milestone 5 work lives on `feature/05-url-html-extraction`.
+- Milestone 6 work lives on `feature/06-pdf-ocr-extraction`.
 
-## Milestone 5 Scope
+## Milestone 6 Scope
 
 Included:
 
 - Pasted text import endpoint
 - `.txt` and `.md` upload endpoint
 - URL import endpoint for public HTML menu pages
+- Direct PDF URL imports
 - URL validation with SSRF protections for private/internal targets
 - HTTP fetching with redirect, timeout, size, and content-type handling
 - HTML text extraction using readability and BeautifulSoup
-- PDF menu-link discovery recorded in import events
+- PDF menu-link discovery recorded in import events for HTML pages
+- PDF content detection from headers and file signatures
+- Page-aware PyMuPDF text extraction
+- pdfplumber layout-aware fallback for sparse or layout-sensitive PDFs
+- OCRmyPDF/Tesseract fallback for empty-text PDFs
+- Repeated PDF header, footer, legend, and legal/allergen line cleanup
+- Stored reference text fixtures for Re Sale, Il Covo del Ribelle, Love Menu, Nobu Milan, and Pizzeria Da Michele
 - Text normalization for line endings, spacing, bullet characters, blank lines, and extracted HTML text
 - Source metadata persistence for pasted text labels, file names, and URL final destinations
 - React import tabs for URL, pasted text, and file uploads
 - Import history and detail shell with AI extraction placeholder state
-- Backend API/security tests and frontend component tests
+- Backend API/security/PDF extraction tests and frontend component tests
 
 Not included yet:
 
 - Gemini API integration
-- PDF extraction or OCR fallback
 - JSON editing/export or evaluation workflows
