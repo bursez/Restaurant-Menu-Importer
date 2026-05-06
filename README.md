@@ -1,8 +1,6 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 8 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, and direct PDF menu URL imports. URL imports validate outbound targets for SSRF safety, fetch pages or PDFs with redirect/timeout/size limits, extract readable HTML or page-aware PDF text, fall back through layout-aware PDF extraction and OCR for empty text layers, persist normalized source text in PostgreSQL, send extracted text through Gemini structured output, validate canonical JSON, and show import history with category results, editable JSON, validation warnings, copy, save, and download actions in the React UI.
-
-The evaluation dashboard is planned for a later milestone in [docs/implementation-plan.md](docs/implementation-plan.md).
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 9 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, direct PDF menu URL imports, Gemini structured extraction, editable/exportable canonical JSON, and a fixture-backed evaluation dashboard for the required 5 reference menus plus a 10-menu qualitative set.
 
 ## Stack
 
@@ -42,6 +40,9 @@ The frontend uses the Vite `/api` proxy when running in Compose.
 - `GET /api/imports/{id}`: inspect status, source metadata, and event history.
 - `GET /api/imports/{id}/json`: download the validated canonical JSON.
 - `PATCH /api/imports/{id}/json`: save user-corrected canonical JSON after backend validation.
+- `GET /api/evaluations/cases`: list the seeded evaluation dataset.
+- `POST /api/evaluations/run`: run deterministic fixture evaluation for `required` or `full`.
+- `GET /api/evaluations/{id}`: retrieve a stored evaluation run.
 
 Imports are persisted, processed through Gemini extraction, validated against the canonical menu schema, and stored with `succeeded` or `failed` status. Failed Gemini calls or invalid structured output are stored on the import as useful errors.
 
@@ -52,6 +53,29 @@ URL imports reject localhost, private/internal network targets, link-local addre
 PDF URL imports are detected from `Content-Type: application/pdf` or the PDF file signature. Text-layer PDFs are extracted with PyMuPDF into `[Page N]` sections. Sparse or layout-sensitive text can fall back to pdfplumber, and empty-text PDFs use OCRmyPDF/Tesseract OCR. Repeated headers, footers, legends, and legal/allergen lines are removed when they repeat across pages.
 
 The backend container and CI install OCR system packages. For local backend development outside Docker, install `ocrmypdf` and `tesseract` on your system if you want to exercise scanned PDF fallback locally.
+
+## Evaluation Dashboard
+
+Milestone 9 adds a local evaluation dataset and dashboard. The required cases are the five reference menus from the implementation plan:
+
+- Re Sale
+- Il Covo del Ribelle
+- Love Menu
+- Nobu Milan
+- Pizzeria Da Michele
+
+The full qualitative set adds five public restaurant menus: Osteria Francescana, Dishoom Covent Garden, Eleven Madison Park, Gramercy Tavern, and St. John. Required cases include expected JSON fixtures under `backend/app/evaluation_fixtures/expected/`; all ten cases include deterministic actual-output fixtures under `backend/app/evaluation_fixtures/actual/`.
+
+The evaluation runner compares fixture output on:
+
+- Schema validity against the canonical menu model.
+- Category coverage against expected fixtures where available.
+- Item-count alignment against expected fixtures where available.
+- Price coverage across extracted items and variants.
+- Language handling against expected fixtures where available.
+- Qualitative score, strengths, weaknesses, and notes for human review.
+
+Live extraction is intentionally not part of normal PR CI. The dashboard and tests use stable fixtures so local and CI runs stay deterministic; manual live evaluation can refresh fixture quality when menu pages or PDFs change.
 
 ## Gemini Extraction
 
@@ -117,8 +141,9 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 6 work lives on `feature/06-pdf-ocr-extraction`.
 - Milestone 7 work lives on `feature/07-gemini-extraction`.
 - Milestone 8 work lives on `feature/08-results-export-ui`.
+- Milestone 9 work lives on `feature/09-evaluation-dashboard`.
 
-## Milestone 8 Scope
+## Milestone 9 Scope
 
 Included:
 
@@ -159,7 +184,20 @@ Included:
 - Validation warnings panel
 - Frontend tests for result rendering and edited JSON save flow
 - Backend tests for patch and download JSON endpoints
+- Evaluation case database model and Alembic migration
+- Seed data for the 5 required reference menus
+- Five additional public restaurant menu cases for the 10-menu qualitative set
+- Expected JSON fixtures for required cases
+- Deterministic actual-output fixtures for all 10 cases
+- Evaluation runner for validity, category coverage, item counts, price coverage, language handling, and qualitative notes
+- Evaluation APIs for listing cases, running evaluations, and retrieving stored runs
+- React evaluation dashboard with dataset and accuracy result tables
+- Backend fixture-based evaluation tests
+- Frontend dashboard test coverage
+- README accuracy methodology and known limitations
 
 Not included yet:
 
-- Evaluation workflows
+- Playwright end-to-end tests
+- GitHub Actions hardening beyond the existing checks
+- Live evaluation as a required CI job
