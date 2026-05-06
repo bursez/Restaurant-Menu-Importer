@@ -1,0 +1,37 @@
+[
+  {
+    "slug": "re_sale",
+    "restaurant": "Re Sale",
+    "url": "https://www.resaleristorante.com/source/menu-resale-completo.pdf",
+    "fixture": "re_sale.txt",
+    "expected_characteristic": "text-layer PDF with page order preserved"
+  },
+  {
+    "slug": "il_covo_del_ribelle",
+    "restaurant": "Il Covo del Ribelle",
+    "url": "https://ilcovodelribelle.com/wp-content/uploads/2023/12/MENU-COVO.pdf",
+    "fixture": "il_covo_del_ribelle.txt",
+    "expected_characteristic": "multi-page menu with repeated legend/footer cleanup"
+  },
+  {
+    "slug": "love_menu",
+    "restaurant": "Love Menu",
+    "url": "https://ugc.production.linktr.ee/c203a2fe-ff6a-44b7-8250-95384d8e145d_LoveMenuA4--1-.pdf",
+    "fixture": "love_menu.txt",
+    "expected_characteristic": "remote PDF hosted behind a non-restaurant CDN URL"
+  },
+  {
+    "slug": "nobu_milan",
+    "restaurant": "Nobu Milan",
+    "url": "https://noburestaurants.com/assets/Menus/Milan/ddd1a111f3/Nobu-Milan-Dinner-Menu.pdf",
+    "fixture": "nobu_milan.txt",
+    "expected_characteristic": "bilingual entries and roll variants with multiple prices"
+  },
+  {
+    "slug": "pizzeria_da_michele",
+    "restaurant": "Pizzeria Da Michele",
+    "url": "https://www.pizzeriadamichele.it/wp-content/uploads/2024/11/Menu-2024DaMichele-asporto.pdf",
+    "fixture": "pizzeria_da_michele_ocr.txt",
+    "expected_characteristic": "image-only PDF requiring OCR fallback"
+  }
+]
