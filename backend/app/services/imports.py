@@ -15,6 +15,7 @@ from app.services.fake_gemini import FakeGeminiAdapter
 from app.services.gemini_client import HttpGeminiAdapter
 from app.services.html_extraction import discover_pdf_links, extract_html_text
 from app.services.menu_extraction import MenuExtractionError, MenuExtractionService
+from app.services.menu_validation import validate_canonical_menu
 from app.services.pdf_extraction import extract_pdf_text
 from app.services.text_imports import normalize_import_text
 from app.services.url_fetching import fetch_url, is_html_response, is_pdf_response
@@ -25,6 +26,10 @@ class UrlImportError(ValueError):
 
 
 class ImportNotFoundError(Exception):
+    pass
+
+
+class ExtractedMenuNotFoundError(Exception):
     pass
 
 
@@ -263,6 +268,38 @@ class ImportService:
         await self.session.commit()
         await self.session.refresh(extracted_menu)
         return extracted_menu
+
+    async def get_canonical_json(self, import_id: uuid.UUID) -> dict[str, Any]:
+        import_record = await self.get_import(import_id)
+        if import_record.extracted_menu is None:
+            raise ExtractedMenuNotFoundError
+        return import_record.extracted_menu.canonical_json
+
+    async def save_corrected_json(self, import_id: uuid.UUID, canonical_json: dict[str, Any]) -> Import:
+        import_record = await self.get_import(import_id)
+        validated_menu = validate_canonical_menu(canonical_json)
+        confidence_score = validated_menu.confidence_score
+        extracted_menu = await self.repository.upsert_extracted_menu(
+            import_record,
+            canonical_json=validated_menu.model_dump(mode="json"),
+            validation_status=ValidationStatus.VALID,
+            restaurant_name=validated_menu.restaurant,
+            currency=validated_menu.currency,
+            language=validated_menu.language,
+            confidence_score=Decimal(str(confidence_score)) if confidence_score is not None else None,
+        )
+        await self.repository.update_import_status(import_record, status=ImportStatus.SUCCEEDED)
+        await self.repository.add_event(
+            import_record,
+            stage="validation",
+            message="User-corrected JSON saved",
+            event_metadata={
+                "extracted_menu_id": str(extracted_menu.id),
+                "validation_status": ValidationStatus.VALID.value,
+            },
+        )
+        await self.session.commit()
+        return await self.get_import(import_id)
 
     async def _extract_import(self, import_id: uuid.UUID) -> Import:
         import_record = await self.get_import(import_id)

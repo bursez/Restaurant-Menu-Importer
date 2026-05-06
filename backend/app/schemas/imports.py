@@ -17,6 +17,10 @@ class UrlImportCreate(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
 
 
+class CorrectedMenuUpdate(BaseModel):
+    canonical_json: dict[str, Any]
+
+
 class ExtractedMenuRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
