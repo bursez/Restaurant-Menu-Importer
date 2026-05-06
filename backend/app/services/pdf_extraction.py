@@ -18,6 +18,7 @@ from app.services.text_imports import normalize_import_text
 MIN_TEXT_CHARACTERS = 40
 MAX_OCR_PAGES = 20
 PRICE_PATTERN = re.compile(r"(?:€\s*)?\d{1,3}(?:[.,]\d{2})?(?:\s*€)?")
+LEGAL_OR_LEGEND_PATTERN = re.compile(r"\b(?:allergeni|allergens|coperto|iva|servizio|legend|legenda)\b", re.IGNORECASE)
 
 
 class PdfExtractionError(ValueError):
@@ -65,8 +66,44 @@ def _page_text(page_number: int, text: str) -> PdfPageText:
 
 
 def _result_from_pages(*, pages: list[PdfPageText], method: str, warnings: list[str] | None = None) -> PdfExtractionResult:
-    text = normalize_import_text(_format_pages(pages))
-    return PdfExtractionResult(text=text, pages=pages, method=method, warnings=warnings or [])
+    cleaned_pages, cleanup_warnings = clean_repeated_pdf_chrome(pages)
+    text = normalize_import_text(_format_pages(cleaned_pages))
+    return PdfExtractionResult(text=text, pages=cleaned_pages, method=method, warnings=[*(warnings or []), *cleanup_warnings])
+
+
+def clean_repeated_pdf_chrome(pages: list[PdfPageText]) -> tuple[list[PdfPageText], list[str]]:
+    if len(pages) < 2:
+        return pages, []
+
+    normalized_line_counts: dict[str, int] = {}
+    original_by_normalized: dict[str, str] = {}
+    page_lines = [page.text.splitlines() for page in pages]
+    for lines in page_lines:
+        for line in set(lines):
+            key = line.casefold().strip()
+            if not key:
+                continue
+            normalized_line_counts[key] = normalized_line_counts.get(key, 0) + 1
+            original_by_normalized.setdefault(key, line)
+
+    threshold = max(2, (len(pages) + 1) // 2)
+    repeated_keys = {
+        key
+        for key, count in normalized_line_counts.items()
+        if count >= threshold and (len(original_by_normalized[key]) <= 100 or LEGAL_OR_LEGEND_PATTERN.search(original_by_normalized[key]))
+    }
+    if not repeated_keys:
+        return pages, []
+
+    cleaned_pages: list[PdfPageText] = []
+    for page, lines in zip(pages, page_lines, strict=True):
+        kept_lines = [line for line in lines if line.casefold().strip() not in repeated_keys]
+        text = normalize_import_text("\n".join(kept_lines)) if kept_lines else ""
+        cleaned_pages.append(PdfPageText(page_number=page.page_number, text=text, line_count=text.count("\n") + 1 if text else 0))
+
+    cleaned_pages = [page for page in cleaned_pages if page.text]
+    removed_lines = sorted(original_by_normalized[key] for key in repeated_keys)
+    return cleaned_pages, [f"Removed repeated PDF chrome lines: {', '.join(removed_lines[:5])}"]
 
 
 def extract_pdf_text_with_pymupdf(pdf_content: bytes) -> PdfExtractionResult:
