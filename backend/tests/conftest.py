@@ -8,8 +8,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.core.config import Settings
+from app.api.imports import get_import_service
 from app.db.session import get_db_session
 from app.main import create_app
+from app.services.fake_gemini import FakeGeminiAdapter
+from app.services.imports import ImportService
+from app.services.menu_extraction import MenuExtractionService
 
 
 @pytest.fixture(scope="session")
@@ -44,6 +49,17 @@ def app(db_session: AsyncSession) -> Iterator:
     async def override_get_db_session() -> AsyncIterator[AsyncSession]:
         yield db_session
 
+    def override_get_import_service() -> ImportService:
+        settings = Settings(gemini_use_fake=True)
+        return ImportService(
+            db_session,
+            menu_extraction_service=MenuExtractionService(
+                adapter=FakeGeminiAdapter(),
+                settings=settings,
+            ),
+        )
+
     app.dependency_overrides[get_db_session] = override_get_db_session
+    app.dependency_overrides[get_import_service] = override_get_import_service
     yield app
     app.dependency_overrides.clear()

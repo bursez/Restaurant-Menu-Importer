@@ -1,0 +1,54 @@
+name: Gemini smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live-gemini-smoke:
+    name: Live Gemini smoke
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: python -m pip install --upgrade pip && python -m pip install ".[dev]"
+
+      - name: Run live Gemini extraction smoke
+        env:
+          APP_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          APP_GEMINI_MODEL: gemini-2.5-flash
+        run: |
+          if [ -z "$APP_GEMINI_API_KEY" ]; then
+            echo "GEMINI_API_KEY secret is not configured; skipping live smoke test."
+            exit 0
+          fi
+          python - <<'PY'
+          import asyncio
+          from app.core.config import get_settings
+          from app.domain.imports import ImportInputType
+          from app.services.gemini_client import HttpGeminiAdapter
+          from app.services.menu_extraction import MenuExtractionService
+
+          async def main() -> None:
+              settings = get_settings()
+              service = MenuExtractionService(adapter=HttpGeminiAdapter(settings), settings=settings)
+              result = await service.extract_menu(
+                  source_text="Trattoria Demo\nAntipasti\nBruschetta € 6,50",
+                  input_type=ImportInputType.TEXT,
+                  source_label="workflow smoke",
+              )
+              assert result.menu.restaurant
+              assert result.menu.categories
+              assert result.model_used == settings.gemini_model
+
+          asyncio.run(main())
+          PY

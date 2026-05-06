@@ -15,13 +15,17 @@ from app.services.url_security import UrlValidationError
 router = APIRouter(prefix="/api/imports", tags=["imports"])
 
 
+def get_import_service(session: AsyncSession = Depends(get_db_session)) -> ImportService:
+    return ImportService(session)
+
+
 @router.post("/text", response_model=ImportDetailRead, status_code=status.HTTP_201_CREATED)
 async def create_text_import(
     payload: TextImportCreate,
-    session: AsyncSession = Depends(get_db_session),
+    service: ImportService = Depends(get_import_service),
 ) -> ImportDetailRead:
     try:
-        import_record = await ImportService(session).create_text_import(
+        import_record = await service.create_text_import(
             text=payload.text,
             source_name=payload.source_name,
         )
@@ -33,7 +37,7 @@ async def create_text_import(
 @router.post("/file", response_model=ImportDetailRead, status_code=status.HTTP_201_CREATED)
 async def create_file_import(
     file: UploadFile = File(...),
-    session: AsyncSession = Depends(get_db_session),
+    service: ImportService = Depends(get_import_service),
 ) -> ImportDetailRead:
     try:
         filename = validate_text_filename(file.filename)
@@ -44,7 +48,7 @@ async def create_file_import(
             text = contents.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise TextImportValidationError("Uploaded menu files must be UTF-8 encoded") from exc
-        import_record = await ImportService(session).create_file_import(text=text, filename=filename)
+        import_record = await service.create_file_import(text=text, filename=filename)
     except TextImportValidationError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     finally:
@@ -56,10 +60,10 @@ async def create_file_import(
 @router.post("/url", response_model=ImportDetailRead, status_code=status.HTTP_201_CREATED)
 async def create_url_import(
     payload: UrlImportCreate,
-    session: AsyncSession = Depends(get_db_session),
+    service: ImportService = Depends(get_import_service),
 ) -> ImportDetailRead:
     try:
-        import_record = await ImportService(session).create_url_import(url=payload.url)
+        import_record = await service.create_url_import(url=payload.url)
     except (UrlValidationError, UrlFetchError, UrlImportError, HtmlExtractionError, PdfExtractionError) as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return ImportDetailRead.model_validate(import_record)
@@ -69,19 +73,19 @@ async def create_url_import(
 async def list_imports(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_db_session),
+    service: ImportService = Depends(get_import_service),
 ) -> list[ImportSummaryRead]:
-    imports = await ImportService(session).list_imports(limit=limit, offset=offset)
+    imports = await service.list_imports(limit=limit, offset=offset)
     return [ImportSummaryRead.model_validate(import_record) for import_record in imports]
 
 
 @router.get("/{import_id}", response_model=ImportDetailRead)
 async def get_import(
     import_id: uuid.UUID,
-    session: AsyncSession = Depends(get_db_session),
+    service: ImportService = Depends(get_import_service),
 ) -> ImportDetailRead:
     try:
-        import_record = await ImportService(session).get_import(import_id)
+        import_record = await service.get_import(import_id)
     except ImportNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

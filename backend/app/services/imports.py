@@ -7,10 +7,14 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.models import ExtractedMenu, Import, ImportEvent
 from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.repositories.imports import ImportRepository
+from app.services.fake_gemini import FakeGeminiAdapter
+from app.services.gemini_client import HttpGeminiAdapter
 from app.services.html_extraction import discover_pdf_links, extract_html_text
+from app.services.menu_extraction import MenuExtractionError, MenuExtractionService
 from app.services.pdf_extraction import extract_pdf_text
 from app.services.text_imports import normalize_import_text
 from app.services.url_fetching import fetch_url, is_html_response, is_pdf_response
@@ -25,9 +29,15 @@ class ImportNotFoundError(Exception):
 
 
 class ImportService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        menu_extraction_service: MenuExtractionService | None = None,
+    ) -> None:
         self.session = session
         self.repository = ImportRepository(session)
+        self.menu_extraction_service = menu_extraction_service or _build_menu_extraction_service()
 
     async def create_import(
         self,
@@ -76,14 +86,8 @@ class ImportService:
                 "line_count": normalized_text.count("\n") + 1,
             },
         )
-        await self.repository.add_event(
-            import_record,
-            stage="ai_extraction",
-            message="AI extraction is not available yet for text imports",
-            event_metadata={"placeholder": True},
-        )
         await self.session.commit()
-        return await self.get_import(import_record.id)
+        return await self._extract_import(import_record.id)
 
     async def create_file_import(
         self,
@@ -108,14 +112,8 @@ class ImportService:
                 "filename": filename,
             },
         )
-        await self.repository.add_event(
-            import_record,
-            stage="ai_extraction",
-            message="AI extraction is not available yet for file imports",
-            event_metadata={"placeholder": True},
-        )
         await self.session.commit()
-        return await self.get_import(import_record.id)
+        return await self._extract_import(import_record.id)
 
     async def create_url_import(self, *, url: str) -> Import:
         fetched_url = await fetch_url(url)
@@ -180,14 +178,8 @@ class ImportService:
             message=extract_message,
             event_metadata=extract_metadata,
         )
-        await self.repository.add_event(
-            import_record,
-            stage="ai_extraction",
-            message="AI extraction is not available yet for URL imports",
-            event_metadata={"placeholder": True},
-        )
         await self.session.commit()
-        return await self.get_import(import_record.id)
+        return await self._extract_import(import_record.id)
 
     async def get_import(self, import_id: uuid.UUID) -> Import:
         import_record = await self.repository.get_import(import_id, include_children=True)
@@ -271,3 +263,86 @@ class ImportService:
         await self.session.commit()
         await self.session.refresh(extracted_menu)
         return extracted_menu
+
+    async def _extract_import(self, import_id: uuid.UUID) -> Import:
+        import_record = await self.get_import(import_id)
+        if not import_record.source_value:
+            await self.repository.update_import_status(
+                import_record,
+                status=ImportStatus.FAILED,
+                error_message="Import has no extracted source text",
+            )
+            await self.repository.add_event(
+                import_record,
+                stage="ai_extraction",
+                message="Menu extraction failed",
+                event_metadata={"error": "Import has no extracted source text"},
+            )
+            await self.session.commit()
+            return await self.get_import(import_id)
+
+        await self.repository.update_import_status(import_record, status=ImportStatus.RUNNING)
+        await self.repository.add_event(
+            import_record,
+            stage="ai_extraction",
+            message="Menu extraction started",
+            event_metadata={"model": self.menu_extraction_service.adapter.model},
+        )
+        await self.session.commit()
+
+        try:
+            result = await self.menu_extraction_service.extract_menu(
+                source_text=import_record.source_value,
+                input_type=ImportInputType(import_record.input_type),
+                source_label=import_record.source_filename,
+            )
+        except MenuExtractionError as exc:
+            import_record = await self.get_import(import_id)
+            await self.repository.update_import_status(
+                import_record,
+                status=ImportStatus.FAILED,
+                error_message=str(exc),
+                model_used=self.menu_extraction_service.adapter.model,
+            )
+            await self.repository.add_event(
+                import_record,
+                stage="ai_extraction",
+                message="Menu extraction failed",
+                event_metadata={"error": str(exc)},
+            )
+            await self.session.commit()
+            return await self.get_import(import_id)
+
+        import_record = await self.get_import(import_id)
+        extracted_menu = await self.repository.upsert_extracted_menu(
+            import_record,
+            canonical_json=result.menu.model_dump(mode="json"),
+            validation_status=ValidationStatus.VALID,
+            restaurant_name=result.menu.restaurant,
+            currency=result.menu.currency,
+            language=result.menu.language,
+            confidence_score=result.confidence_decimal,
+        )
+        await self.repository.update_import_status(
+            import_record,
+            status=ImportStatus.SUCCEEDED,
+            model_used=result.model_used,
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="ai_extraction",
+            message="Menu extraction succeeded",
+            event_metadata={
+                "attempts": result.attempts,
+                "model": result.model_used,
+                "extracted_menu_id": str(extracted_menu.id),
+            },
+        )
+        await self.session.commit()
+        return await self.get_import(import_id)
+
+
+def _build_menu_extraction_service() -> MenuExtractionService:
+    settings = get_settings()
+    adapter = FakeGeminiAdapter() if settings.gemini_use_fake else HttpGeminiAdapter(settings)
+    return MenuExtractionService(adapter=adapter, settings=settings)
