@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from io import BytesIO
+from pathlib import Path
 import re
 import subprocess
 import tempfile
@@ -105,3 +106,94 @@ def extract_pdf_text_with_pdfplumber(pdf_content: bytes) -> PdfExtractionResult:
     if not text_pages:
         raise PdfExtractionError("PDF layout text is empty")
     return _result_from_pages(pages=text_pages, method="pdfplumber")
+
+
+def _render_page_for_ocr(page: fitz.Page) -> Image.Image:
+    pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+    return Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+
+
+def _ocr_pdf_with_tesseract(pdf_content: bytes) -> PdfExtractionResult:
+    try:
+        document = fitz.open(stream=pdf_content, filetype="pdf")
+    except Exception as exc:
+        raise PdfExtractionError("PDF content could not be opened for OCR") from exc
+
+    if document.page_count > MAX_OCR_PAGES:
+        raise PdfExtractionError(f"OCR fallback cannot process more than {MAX_OCR_PAGES} pages")
+
+    pages: list[PdfPageText] = []
+    for index, page in enumerate(document):
+        image = _render_page_for_ocr(page)
+        text = pytesseract.image_to_string(image, lang="ita+eng")
+        page_text = _page_text(index + 1, text)
+        if page_text.text:
+            pages.append(page_text)
+
+    if not pages:
+        raise PdfExtractionError("OCR did not find extractable text")
+    return _result_from_pages(pages=pages, method="tesseract-ocr", warnings=["PDF text layer was empty; OCR fallback used"])
+
+
+def _ocr_pdf_with_ocrmypdf(pdf_content: bytes) -> PdfExtractionResult:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        input_path = Path(tmpdir) / "input.pdf"
+        output_path = Path(tmpdir) / "output.pdf"
+        input_path.write_bytes(pdf_content)
+        try:
+            subprocess.run(
+                [
+                    "ocrmypdf",
+                    "--skip-text",
+                    "--language",
+                    "ita+eng",
+                    "--quiet",
+                    str(input_path),
+                    str(output_path),
+                ],
+                check=True,
+                capture_output=True,
+                timeout=90,
+            )
+        except (FileNotFoundError, subprocess.SubprocessError) as exc:
+            raise PdfExtractionError("OCRmyPDF fallback failed") from exc
+        return extract_pdf_text_with_pymupdf(output_path.read_bytes())
+
+
+def extract_pdf_text_with_ocr(pdf_content: bytes) -> PdfExtractionResult:
+    try:
+        result = _ocr_pdf_with_ocrmypdf(pdf_content)
+        return PdfExtractionResult(
+            text=result.text,
+            pages=result.pages,
+            method="ocrmypdf",
+            warnings=["PDF text layer was empty; OCR fallback used"],
+        )
+    except PdfExtractionError:
+        return _ocr_pdf_with_tesseract(pdf_content)
+
+
+def extract_pdf_text(pdf_content: bytes) -> PdfExtractionResult:
+    warnings: list[str] = []
+    try:
+        pymupdf_result = extract_pdf_text_with_pymupdf(pdf_content)
+    except PdfExtractionError:
+        return extract_pdf_text_with_ocr(pdf_content)
+
+    if not _needs_layout_fallback(pymupdf_result):
+        return pymupdf_result
+
+    try:
+        layout_result = extract_pdf_text_with_pdfplumber(pdf_content)
+    except PdfExtractionError:
+        warnings.append("Layout-aware PDF fallback was not available")
+        return PdfExtractionResult(
+            text=pymupdf_result.text,
+            pages=pymupdf_result.pages,
+            method=pymupdf_result.method,
+            warnings=warnings,
+        )
+
+    if layout_result.character_count >= pymupdf_result.character_count:
+        return layout_result
+    return pymupdf_result
