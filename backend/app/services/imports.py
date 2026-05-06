@@ -10,7 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import ExtractedMenu, Import, ImportEvent
 from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.repositories.imports import ImportRepository
+from app.services.html_extraction import discover_pdf_links, extract_html_text
 from app.services.text_imports import normalize_import_text
+from app.services.url_fetching import fetch_url, is_html_response
+
+
+class UrlImportError(ValueError):
+    pass
 
 
 class ImportNotFoundError(Exception):
@@ -105,6 +111,59 @@ class ImportService:
             import_record,
             stage="ai_extraction",
             message="AI extraction is not available yet for file imports",
+            event_metadata={"placeholder": True},
+        )
+        await self.session.commit()
+        return await self.get_import(import_record.id)
+
+    async def create_url_import(self, *, url: str) -> Import:
+        fetched_url = await fetch_url(url)
+        if not is_html_response(fetched_url):
+            raise UrlImportError("Only HTML menu pages are supported before the PDF extraction milestone")
+
+        extraction = extract_html_text(fetched_url.content)
+        pdf_links = discover_pdf_links(fetched_url.content, base_url=fetched_url.final_url)
+        import_record = await self.repository.create_import(
+            input_type=ImportInputType.URL,
+            source_value=extraction.text,
+            source_filename=fetched_url.final_url,
+            status=ImportStatus.PENDING,
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="created",
+            message="URL import created",
+            event_metadata={
+                "requested_url": fetched_url.requested_url,
+                "final_url": fetched_url.final_url,
+            },
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="fetch",
+            message="URL fetched successfully",
+            event_metadata={
+                "content_type": fetched_url.content_type,
+                "redirect_count": fetched_url.redirect_count,
+                "status_code": fetched_url.status_code,
+                "byte_count": len(fetched_url.content),
+            },
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="extract",
+            message="HTML menu text extracted",
+            event_metadata={
+                "character_count": len(extraction.text),
+                "line_count": extraction.text.count("\n") + 1,
+                "title": extraction.title,
+                "pdf_links": pdf_links,
+            },
+        )
+        await self.repository.add_event(
+            import_record,
+            stage="ai_extraction",
+            message="AI extraction is not available yet for URL imports",
             event_metadata={"placeholder": True},
         )
         await self.session.commit()

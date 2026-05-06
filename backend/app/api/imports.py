@@ -4,9 +4,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
-from app.schemas.imports import ImportDetailRead, ImportSummaryRead, TextImportCreate
-from app.services.imports import ImportNotFoundError, ImportService
+from app.schemas.imports import ImportDetailRead, ImportSummaryRead, TextImportCreate, UrlImportCreate
+from app.services.html_extraction import HtmlExtractionError
+from app.services.imports import ImportNotFoundError, ImportService, UrlImportError
 from app.services.text_imports import MAX_IMPORT_TEXT_LENGTH, TextImportValidationError, validate_text_filename
+from app.services.url_fetching import UrlFetchError
+from app.services.url_security import UrlValidationError
 
 router = APIRouter(prefix="/api/imports", tags=["imports"])
 
@@ -46,6 +49,18 @@ async def create_file_import(
     finally:
         await file.close()
 
+    return ImportDetailRead.model_validate(import_record)
+
+
+@router.post("/url", response_model=ImportDetailRead, status_code=status.HTTP_201_CREATED)
+async def create_url_import(
+    payload: UrlImportCreate,
+    session: AsyncSession = Depends(get_db_session),
+) -> ImportDetailRead:
+    try:
+        import_record = await ImportService(session).create_url_import(url=payload.url)
+    except (UrlValidationError, UrlFetchError, UrlImportError, HtmlExtractionError) as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return ImportDetailRead.model_validate(import_record)
 
 

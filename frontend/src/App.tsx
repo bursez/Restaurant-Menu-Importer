@@ -3,7 +3,7 @@ import "./App.css";
 
 type ImportStatus = "pending" | "running" | "succeeded" | "failed";
 type ImportInputType = "text" | "file" | "url";
-type ImportMode = "text" | "file";
+type ImportMode = "text" | "file" | "url";
 
 type ImportEvent = {
   id: string;
@@ -52,6 +52,7 @@ export function App() {
   const [mode, setMode] = useState<ImportMode>("text");
   const [text, setText] = useState("");
   const [sourceName, setSourceName] = useState("");
+  const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [imports, setImports] = useState<ImportSummary[]>([]);
   const [selectedImport, setSelectedImport] = useState<ImportDetail | null>(null);
@@ -144,13 +145,33 @@ export function App() {
     return (await response.json()) as ImportDetail;
   }
 
+  async function submitUrlImport() {
+    const response = await fetch(`${apiBaseUrl}/imports/url`, {
+      body: JSON.stringify({ url }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      throw new Error(await parseApiError(response));
+    }
+
+    setUrl("");
+    return (await response.json()) as ImportDetail;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const createdImport = mode === "text" ? await submitTextImport() : await submitFileImport();
+      const createdImport =
+        mode === "text"
+          ? await submitTextImport()
+          : mode === "file"
+            ? await submitFileImport()
+            : await submitUrlImport();
       setSelectedImport(createdImport);
       await loadImports();
     } catch (err) {
@@ -164,11 +185,14 @@ export function App() {
     setFile(event.target.files?.[0] ?? null);
   }
 
+  const canSubmit =
+    mode === "text" ? text.trim().length > 0 : mode === "file" ? file !== null : url.trim().length > 0;
+
   return (
     <main className="app-shell">
       <header className="top-bar">
         <div>
-          <p className="eyebrow">Milestone 4</p>
+          <p className="eyebrow">Milestone 5</p>
           <h1>Restaurant Menu Importer</h1>
         </div>
         <button className="secondary-button" type="button" onClick={loadImports} disabled={isLoadingHistory}>
@@ -181,6 +205,15 @@ export function App() {
       <section className="workspace" aria-label="Import workspace">
         <form className="import-panel" onSubmit={handleSubmit}>
           <div className="tab-list" role="tablist" aria-label="Import source">
+            <button
+              aria-selected={mode === "url"}
+              className="tab-button"
+              onClick={() => setMode("url")}
+              role="tab"
+              type="button"
+            >
+              URL
+            </button>
             <button
               aria-selected={mode === "text"}
               className="tab-button"
@@ -201,7 +234,20 @@ export function App() {
             </button>
           </div>
 
-          {mode === "text" ? (
+          {mode === "url" ? (
+            <div className="field-stack">
+              <label htmlFor="menu-url">Menu page URL</label>
+              <input
+                id="menu-url"
+                inputMode="url"
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://example.com/menu"
+                required
+                type="url"
+                value={url}
+              />
+            </div>
+          ) : mode === "text" ? (
             <div className="field-stack">
               <label htmlFor="source-name">Source name</label>
               <input
@@ -229,7 +275,7 @@ export function App() {
             </div>
           )}
 
-          <button type="submit" disabled={isSubmitting || (mode === "text" ? text.trim().length === 0 : !file)}>
+          <button type="submit" disabled={isSubmitting || !canSubmit}>
             {isSubmitting ? "Importing" : "Create import"}
           </button>
         </form>
@@ -274,7 +320,10 @@ export function App() {
               </div>
               <div>
                 <dt>Source</dt>
-                <dd>{selectedImport.source_filename || "Pasted text"}</dd>
+                <dd>
+                  {selectedImport.source_filename ||
+                    (selectedImport.input_type === "text" ? "Pasted text" : "Uploaded file")}
+                </dd>
               </div>
               <div>
                 <dt>Created</dt>
