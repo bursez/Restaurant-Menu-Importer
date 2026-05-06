@@ -1,12 +1,14 @@
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
-from app.schemas.imports import ImportDetailRead, ImportSummaryRead, TextImportCreate, UrlImportCreate
+from app.schemas.imports import CorrectedMenuUpdate, ImportDetailRead, ImportSummaryRead, TextImportCreate, UrlImportCreate
 from app.services.html_extraction import HtmlExtractionError
-from app.services.imports import ImportNotFoundError, ImportService, UrlImportError
+from app.services.imports import ExtractedMenuNotFoundError, ImportNotFoundError, ImportService, UrlImportError
 from app.services.pdf_extraction import PdfExtractionError
 from app.services.text_imports import MAX_IMPORT_TEXT_LENGTH, TextImportValidationError, validate_text_filename
 from app.services.url_fetching import UrlFetchError
@@ -91,4 +93,37 @@ async def get_import(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Import not found",
         ) from exc
+    return ImportDetailRead.model_validate(import_record)
+
+
+@router.get("/{import_id}/json")
+async def download_import_json(
+    import_id: uuid.UUID,
+    service: ImportService = Depends(get_import_service),
+) -> JSONResponse:
+    try:
+        canonical_json = await service.get_canonical_json(import_id)
+    except ImportNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found") from exc
+    except ExtractedMenuNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Extracted menu not found") from exc
+
+    return JSONResponse(
+        canonical_json,
+        headers={"Content-Disposition": f'attachment; filename="import-{import_id}.json"'},
+    )
+
+
+@router.patch("/{import_id}/json", response_model=ImportDetailRead)
+async def save_corrected_import_json(
+    import_id: uuid.UUID,
+    payload: CorrectedMenuUpdate,
+    service: ImportService = Depends(get_import_service),
+) -> ImportDetailRead:
+    try:
+        import_record = await service.save_corrected_json(import_id, payload.canonical_json)
+    except ImportNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import not found") from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors()) from exc
     return ImportDetailRead.model_validate(import_record)

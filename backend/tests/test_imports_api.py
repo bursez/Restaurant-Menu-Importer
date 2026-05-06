@@ -5,6 +5,33 @@ from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.services.imports import ImportService
 
 
+def menu_payload(name: str = "Demo") -> dict:
+    return {
+        "restaurant": name,
+        "currency": "EUR",
+        "language": "it",
+        "source": {"type": "text", "value": "Antipasti\nBruschetta 6,50"},
+        "categories": [
+            {
+                "name": "Antipasti",
+                "items": [
+                    {
+                        "name": "Bruschetta",
+                        "description": "Tomato toast",
+                        "price": 6.5,
+                        "price_text": "€ 6,50",
+                        "allergens": ["gluten"],
+                        "tags": ["vegetarian"],
+                        "variants": [],
+                    }
+                ],
+            }
+        ],
+        "confidence_score": 0.9,
+        "validation_warnings": [],
+    }
+
+
 @pytest.mark.asyncio
 async def test_create_text_import_normalizes_and_persists_text(app) -> None:
     transport = ASGITransport(app=app)
@@ -80,7 +107,7 @@ async def test_list_and_get_imports(app, db_session) -> None:
     await service.update_status(import_record.id, status=ImportStatus.RUNNING)
     await service.save_extracted_menu(
         import_record.id,
-        canonical_json={"restaurant": "Demo", "categories": []},
+        canonical_json=menu_payload(),
         validation_status=ValidationStatus.VALID,
         restaurant_name="Demo",
         currency="EUR",
@@ -113,3 +140,70 @@ async def test_get_import_returns_404_for_missing_uuid(app) -> None:
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Import not found"}
+
+
+@pytest.mark.asyncio
+async def test_download_import_json(app, db_session) -> None:
+    service = ImportService(db_session)
+    import_record = await service.create_import(
+        input_type=ImportInputType.TEXT,
+        source_value="Antipasti\nBruschetta 6,50",
+    )
+    await service.save_extracted_menu(
+        import_record.id,
+        canonical_json=menu_payload(),
+        validation_status=ValidationStatus.VALID,
+        restaurant_name="Demo",
+        currency="EUR",
+        language="it",
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(f"/api/imports/{import_record.id}/json")
+
+    assert response.status_code == 200
+    assert response.headers["content-disposition"] == f'attachment; filename="import-{import_record.id}.json"'
+    assert response.json()["restaurant"] == "Demo"
+
+
+@pytest.mark.asyncio
+async def test_patch_import_json_validates_and_saves_corrections(app, db_session) -> None:
+    service = ImportService(db_session)
+    import_record = await service.create_import(
+        input_type=ImportInputType.TEXT,
+        source_value="Antipasti\nBruschetta 6,50",
+    )
+
+    corrected_json = menu_payload("Corrected Restaurant")
+    corrected_json["categories"][0]["items"][0]["price_text"] = "6,50"
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/imports/{import_record.id}/json",
+            json={"canonical_json": corrected_json},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "succeeded"
+    assert payload["extracted_menu"]["restaurant_name"] == "Corrected Restaurant"
+    assert payload["extracted_menu"]["canonical_json"]["categories"][0]["items"][0]["price"] == 6.5
+    assert payload["events"][-1]["message"] == "User-corrected JSON saved"
+
+
+@pytest.mark.asyncio
+async def test_patch_import_json_rejects_invalid_menu(app, db_session) -> None:
+    service = ImportService(db_session)
+    import_record = await service.create_import(input_type=ImportInputType.TEXT, source_value="Broken")
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.patch(
+            f"/api/imports/{import_record.id}/json",
+            json={"canonical_json": {"restaurant": "", "categories": []}},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == ["restaurant"]
