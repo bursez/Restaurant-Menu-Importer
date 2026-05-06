@@ -110,6 +110,57 @@ const urlImport = {
   ],
 };
 
+const evaluationCases = [
+  {
+    id: "88888888-8888-8888-8888-888888888888",
+    slug: "re-sale",
+    name: "Re Sale",
+    source_url: "https://www.resaleristorante.it/menu.pdf",
+    case_set: "required",
+    source_fixture_path: "tests/fixtures/pdf_reference_texts/re_sale.txt",
+    expected_fixture_path: "app/evaluation_fixtures/expected/re_sale.json",
+    actual_fixture_path: "app/evaluation_fixtures/actual/re_sale.json",
+    qualitative_score: 8,
+    strengths: "Text-layer PDF keeps dish names readable.",
+    weaknesses: "Column spacing can separate descriptions from prices.",
+    notes: "Strong baseline.",
+    created_at: createdAt,
+    updated_at: createdAt,
+  },
+];
+
+const evaluationRun = {
+  id: "99999999-9999-9999-9999-999999999999",
+  case_set: "full",
+  case_count: 1,
+  averages: {
+    validity: 1,
+    category_coverage: 1,
+    item_count_ratio: 1,
+    price_coverage: 0.67,
+    language_score: 1,
+    qualitative_score: 8,
+  },
+  cases: [
+    {
+      slug: "re-sale",
+      name: "Re Sale",
+      case_set: "required",
+      is_valid: true,
+      category_coverage: 1,
+      item_count_ratio: 1,
+      price_coverage: 0.67,
+      language_score: 1,
+      qualitative_score: 8,
+      strengths: "Text-layer PDF keeps dish names readable.",
+      weaknesses: "Column spacing can separate descriptions from prices.",
+      notes: "Strong baseline.",
+      errors: [],
+    },
+  ],
+  created_at: createdAt,
+};
+
 function jsonResponse(payload: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(payload), {
     headers: { "Content-Type": "application/json" },
@@ -131,7 +182,7 @@ describe("App", () => {
   });
 
   it("loads import history", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse([textImport]));
+    fetchMock.mockResolvedValueOnce(jsonResponse([textImport])).mockResolvedValueOnce(jsonResponse(evaluationCases));
 
     render(<App />);
 
@@ -139,11 +190,13 @@ describe("App", () => {
     expect(await screen.findByText("Dinner menu")).toBeInTheDocument();
     expect(screen.getByText("succeeded")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/imports");
+    expect(fetchMock).toHaveBeenCalledWith("/api/evaluations/cases");
   });
 
   it("creates a pasted text import and shows extracted results", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(evaluationCases))
       .mockResolvedValueOnce(jsonResponse(textImport, { status: 201 }))
       .mockResolvedValueOnce(jsonResponse([textImport]));
 
@@ -177,6 +230,7 @@ describe("App", () => {
   it("creates a URL import", async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(evaluationCases))
       .mockResolvedValueOnce(jsonResponse(urlImport, { status: 201 }))
       .mockResolvedValueOnce(jsonResponse([urlImport]));
 
@@ -214,6 +268,7 @@ describe("App", () => {
     };
     fetchMock
       .mockResolvedValueOnce(jsonResponse([textImport]))
+      .mockResolvedValueOnce(jsonResponse(evaluationCases))
       .mockResolvedValueOnce(jsonResponse(textImport))
       .mockResolvedValueOnce(jsonResponse(updatedImport))
       .mockResolvedValueOnce(jsonResponse([updatedImport]));
@@ -238,7 +293,10 @@ describe("App", () => {
   });
 
   it("shows client-side validation errors for invalid JSON edits", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse([textImport])).mockResolvedValueOnce(jsonResponse(textImport));
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([textImport]))
+      .mockResolvedValueOnce(jsonResponse(evaluationCases))
+      .mockResolvedValueOnce(jsonResponse(textImport));
 
     render(<App />);
 
@@ -248,6 +306,31 @@ describe("App", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save JSON" }));
 
     expect(await screen.findByText(/restaurant:/)).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("runs the evaluation dashboard", async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse([textImport]))
+      .mockResolvedValueOnce(jsonResponse(evaluationCases))
+      .mockResolvedValueOnce(jsonResponse(evaluationRun));
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Evaluation dashboard" })).toBeInTheDocument();
+    expect(await screen.findByText("Re Sale")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Run 10-case eval" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/evaluations/run",
+        expect.objectContaining({
+          body: JSON.stringify({ case_set: "full" }),
+          method: "POST",
+        }),
+      );
+    });
+    expect(await screen.findByRole("heading", { name: "Accuracy results" })).toBeInTheDocument();
+    expect(screen.getAllByText("67%").length).toBeGreaterThan(0);
   });
 });
