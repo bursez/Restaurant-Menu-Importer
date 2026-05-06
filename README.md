@@ -1,8 +1,8 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 7 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, and direct PDF menu URL imports. URL imports validate outbound targets for SSRF safety, fetch pages or PDFs with redirect/timeout/size limits, extract readable HTML or page-aware PDF text, fall back through layout-aware PDF extraction and OCR for empty text layers, persist normalized source text in PostgreSQL, send extracted text through Gemini structured output, validate canonical JSON, and show import history plus detail shells in the React UI.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 8 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, and direct PDF menu URL imports. URL imports validate outbound targets for SSRF safety, fetch pages or PDFs with redirect/timeout/size limits, extract readable HTML or page-aware PDF text, fall back through layout-aware PDF extraction and OCR for empty text layers, persist normalized source text in PostgreSQL, send extracted text through Gemini structured output, validate canonical JSON, and show import history with category results, editable JSON, validation warnings, copy, save, and download actions in the React UI.
 
-JSON editing/export and the evaluation dashboard are planned for later milestones in [docs/implementation-plan.md](docs/implementation-plan.md).
+The evaluation dashboard is planned for a later milestone in [docs/implementation-plan.md](docs/implementation-plan.md).
 
 ## Stack
 
@@ -40,8 +40,12 @@ The frontend uses the Vite `/api` proxy when running in Compose.
 - `POST /api/imports/url`: create an import from a public HTTP/HTTPS HTML menu page or direct PDF menu URL.
 - `GET /api/imports`: list recent imports.
 - `GET /api/imports/{id}`: inspect status, source metadata, and event history.
+- `GET /api/imports/{id}/json`: download the validated canonical JSON.
+- `PATCH /api/imports/{id}/json`: save user-corrected canonical JSON after backend validation.
 
 Imports are persisted, processed through Gemini extraction, validated against the canonical menu schema, and stored with `succeeded` or `failed` status. Failed Gemini calls or invalid structured output are stored on the import as useful errors.
+
+The frontend renders completed imports as category-grouped dish tables with prices, descriptions, tags, allergens, variants, validation warnings, and an editable canonical JSON view. Edited JSON is checked in the browser with a Zod schema that mirrors the backend Pydantic schema, then saved through the backend for final validation and persistence.
 
 URL imports reject localhost, private/internal network targets, link-local addresses, metadata IPs, unsupported schemes, and credentialed URLs. The fetcher follows a small number of validated redirects, enforces timeouts and response size limits, and stores cleaned HTML or PDF text as the import source. Likely PDF menu links discovered inside HTML pages are recorded in import event metadata.
 
@@ -112,8 +116,9 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 5 work lives on `feature/05-url-html-extraction`.
 - Milestone 6 work lives on `feature/06-pdf-ocr-extraction`.
 - Milestone 7 work lives on `feature/07-gemini-extraction`.
+- Milestone 8 work lives on `feature/08-results-export-ui`.
 
-## Milestone 7 Scope
+## Milestone 8 Scope
 
 Included:
 
@@ -145,7 +150,16 @@ Included:
 - Backend API/security/PDF extraction tests and frontend component tests
 - Backend Gemini extraction success, failure, validation, and retry tests
 - Optional manual live Gemini smoke workflow
+- Results table grouped by extracted category
+- Editable canonical JSON view
+- Client-side canonical menu validation with Zod
+- Backend JSON download endpoint
+- Backend corrected JSON save endpoint
+- Copy and download JSON actions
+- Validation warnings panel
+- Frontend tests for result rendering and edited JSON save flow
+- Backend tests for patch and download JSON endpoints
 
 Not included yet:
 
-- JSON editing/export or evaluation workflows
+- Evaluation workflows
