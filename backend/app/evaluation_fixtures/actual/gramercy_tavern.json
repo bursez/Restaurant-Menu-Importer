@@ -1,0 +1,14 @@
+{
+  "restaurant": "Gramercy Tavern",
+  "currency": "USD",
+  "language": "en",
+  "source": { "type": "url", "value": "https://www.gramercytavern.com/menus/" },
+  "categories": [
+    { "name": "Tavern", "items": [
+      { "name": "Market Lettuces", "description": "Herbs and vinaigrette", "price": 21.0, "price_text": "$21", "allergens": [], "tags": ["vegetarian"], "variants": [] },
+      { "name": "Roasted Chicken", "description": "Seasonal vegetables", "price": 38.0, "price_text": "$38", "allergens": [], "tags": [], "variants": [] }
+    ] }
+  ],
+  "confidence_score": 0.83,
+  "validation_warnings": []
+}

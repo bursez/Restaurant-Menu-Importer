@@ -5,6 +5,7 @@ import "./App.css";
 type ImportStatus = "pending" | "running" | "succeeded" | "failed";
 type ImportInputType = "text" | "file" | "url";
 type ImportMode = "text" | "file" | "url";
+type EvaluationCaseSet = "required" | "full";
 
 type ImportEvent = {
   id: string;
@@ -85,6 +86,48 @@ type ExtractedMenu = {
   updated_at: string;
 };
 
+type EvaluationCase = {
+  id: string;
+  slug: string;
+  name: string;
+  source_url: string;
+  case_set: "required" | "additional";
+  source_fixture_path: string | null;
+  expected_fixture_path: string | null;
+  actual_fixture_path: string | null;
+  qualitative_score: string | number | null;
+  strengths: string | null;
+  weaknesses: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type EvaluationCaseMetric = {
+  slug: string;
+  name: string;
+  case_set: "required" | "additional";
+  is_valid: boolean;
+  category_coverage: number | null;
+  item_count_ratio: number | null;
+  price_coverage: number;
+  language_score: number | null;
+  qualitative_score: number | null;
+  strengths: string | null;
+  weaknesses: string | null;
+  notes: string | null;
+  errors: string[];
+};
+
+type EvaluationRun = {
+  id: string;
+  case_set: EvaluationCaseSet;
+  case_count: number;
+  averages: Record<string, number | null>;
+  cases: EvaluationCaseMetric[];
+  created_at: string;
+};
+
 const warningSchema = z.object({
   code: z.enum([
     "missing_price",
@@ -162,6 +205,18 @@ function prettyJson(value: unknown) {
   return JSON.stringify(value, null, 2);
 }
 
+function formatPercent(value: number | null | undefined) {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "N/A";
+}
+
+function formatScore(value: string | number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+  const numericValue = typeof value === "string" ? Number(value) : value;
+  return Number.isFinite(numericValue) ? numericValue.toFixed(1) : "N/A";
+}
+
 function validationMessage(error: z.ZodError) {
   return error.issues.map((issue) => `${issue.path.join(".") || "menu"}: ${issue.message}`).join("\n");
 }
@@ -180,6 +235,10 @@ export function App() {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [jsonNotice, setJsonNotice] = useState<string | null>(null);
   const [isSavingJson, setIsSavingJson] = useState(false);
+  const [evaluationCases, setEvaluationCases] = useState<EvaluationCase[]>([]);
+  const [evaluationRun, setEvaluationRun] = useState<EvaluationRun | null>(null);
+  const [isLoadingEvaluations, setIsLoadingEvaluations] = useState(false);
+  const [isRunningEvaluation, setIsRunningEvaluation] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedSourcePreview = useMemo(() => {
@@ -209,6 +268,24 @@ export function App() {
     }
   }
 
+  async function loadEvaluationCases() {
+    setIsLoadingEvaluations(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/evaluations/cases`);
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+
+      setEvaluationCases((await response.json()) as EvaluationCase[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load evaluation cases");
+    } finally {
+      setIsLoadingEvaluations(false);
+    }
+  }
+
   async function loadImportDetail(importId: string) {
     setError(null);
 
@@ -226,6 +303,7 @@ export function App() {
 
   useEffect(() => {
     void loadImports();
+    void loadEvaluationCases();
   }, []);
 
   useEffect(() => {
@@ -399,6 +477,27 @@ export function App() {
     }
   }
 
+  async function runEvaluation(caseSet: EvaluationCaseSet) {
+    setIsRunningEvaluation(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/evaluations/run`, {
+        body: JSON.stringify({ case_set: caseSet }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      if (!response.ok) {
+        throw new Error(await parseApiError(response));
+      }
+      setEvaluationRun((await response.json()) as EvaluationRun);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not run evaluation");
+    } finally {
+      setIsRunningEvaluation(false);
+    }
+  }
+
   const canSubmit =
     mode === "text" ? text.trim().length > 0 : mode === "file" ? file !== null : url.trim().length > 0;
 
@@ -406,12 +505,30 @@ export function App() {
     <main className="app-shell">
       <header className="top-bar">
         <div>
-          <p className="eyebrow">Milestone 8</p>
+          <p className="eyebrow">Milestone 9</p>
           <h1>Restaurant Menu Importer</h1>
         </div>
-        <button className="secondary-button" type="button" onClick={loadImports} disabled={isLoadingHistory}>
-          Refresh
-        </button>
+        <div className="action-row">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void runEvaluation("required")}
+            disabled={isRunningEvaluation}
+          >
+            Run 5-case eval
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => void runEvaluation("full")}
+            disabled={isRunningEvaluation}
+          >
+            Run 10-case eval
+          </button>
+          <button className="secondary-button" type="button" onClick={loadImports} disabled={isLoadingHistory}>
+            Refresh
+          </button>
+        </div>
       </header>
 
       {error ? <p className="alert">{error}</p> : null}
@@ -668,6 +785,107 @@ export function App() {
         ) : (
           <p className="empty-state">Select or create an import.</p>
         )}
+      </section>
+
+      <section className="evaluation-panel" aria-labelledby="evaluation-title">
+        <div className="panel-heading">
+          <div>
+            <h2 id="evaluation-title">Evaluation dashboard</h2>
+            <p>{evaluationCases.length} fixture-backed menu cases</p>
+          </div>
+          {evaluationRun ? <span>Last run: {formatDate(evaluationRun.created_at)}</span> : null}
+        </div>
+
+        <div className="evaluation-grid">
+          <section className="evaluation-cases" aria-labelledby="evaluation-cases-title">
+            <div className="subsection-heading">
+              <div>
+                <h3 id="evaluation-cases-title">Dataset</h3>
+                <p>Required reference menus and five public qualitative cases.</p>
+              </div>
+              <span>{isLoadingEvaluations ? "Loading" : `${evaluationCases.length} cases`}</span>
+            </div>
+            <div className="case-list">
+              {evaluationCases.map((evaluationCase) => (
+                <article className="case-item" key={evaluationCase.id}>
+                  <div>
+                    <strong>{evaluationCase.name}</strong>
+                    <small>{evaluationCase.case_set}</small>
+                  </div>
+                  <p>{evaluationCase.notes}</p>
+                  <span>{formatScore(evaluationCase.qualitative_score)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="evaluation-results" aria-labelledby="evaluation-results-title">
+            <div className="subsection-heading">
+              <div>
+                <h3 id="evaluation-results-title">Accuracy results</h3>
+                <p>Validity, coverage, price extraction, language handling, and qualitative notes.</p>
+              </div>
+              {evaluationRun ? <span>{evaluationRun.case_count} cases</span> : null}
+            </div>
+
+            {evaluationRun ? (
+              <>
+                <div className="metric-strip">
+                  <article>
+                    <span>Validity</span>
+                    <strong>{formatPercent(evaluationRun.averages.validity)}</strong>
+                  </article>
+                  <article>
+                    <span>Categories</span>
+                    <strong>{formatPercent(evaluationRun.averages.category_coverage)}</strong>
+                  </article>
+                  <article>
+                    <span>Prices</span>
+                    <strong>{formatPercent(evaluationRun.averages.price_coverage)}</strong>
+                  </article>
+                  <article>
+                    <span>Qualitative</span>
+                    <strong>{formatScore(evaluationRun.averages.qualitative_score)}</strong>
+                  </article>
+                </div>
+
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Case</th>
+                        <th scope="col">Valid</th>
+                        <th scope="col">Categories</th>
+                        <th scope="col">Items</th>
+                        <th scope="col">Prices</th>
+                        <th scope="col">Language</th>
+                        <th scope="col">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {evaluationRun.cases.map((metric) => (
+                        <tr key={metric.slug}>
+                          <td>
+                            <strong>{metric.name}</strong>
+                            <small>{metric.case_set}</small>
+                          </td>
+                          <td>{metric.is_valid ? "Yes" : "No"}</td>
+                          <td>{formatPercent(metric.category_coverage)}</td>
+                          <td>{formatPercent(metric.item_count_ratio)}</td>
+                          <td>{formatPercent(metric.price_coverage)}</td>
+                          <td>{formatPercent(metric.language_score)}</td>
+                          <td>{metric.weaknesses || metric.notes || "No notes"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="empty-state">Run the required or full evaluation set to calculate fixture metrics.</p>
+            )}
+          </section>
+        </div>
       </section>
     </main>
   );

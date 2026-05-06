@@ -1,0 +1,16 @@
+{
+  "restaurant": "Eleven Madison Park",
+  "currency": "USD",
+  "language": "en",
+  "source": { "type": "url", "value": "https://www.elevenmadisonpark.com/menu/" },
+  "categories": [
+    { "name": "Plant-Based Tasting Menu", "items": [
+      { "name": "Cucumber with melon and lemon verbena", "description": null, "price": null, "price_text": null, "allergens": [], "tags": ["plant-based"], "variants": [] },
+      { "name": "Summer squash with basil", "description": null, "price": null, "price_text": null, "allergens": [], "tags": ["plant-based"], "variants": [] }
+    ] }
+  ],
+  "confidence_score": 0.7,
+  "validation_warnings": [
+    { "code": "missing_price", "message": "Tasting menu has package pricing rather than item prices.", "path": null, "context": {} }
+  ]
+}
