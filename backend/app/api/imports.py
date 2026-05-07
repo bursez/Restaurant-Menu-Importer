@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import sanitize_error_message
 from app.db.session import get_db_session
 from app.schemas.imports import CorrectedMenuUpdate, ImportDetailRead, ImportSummaryRead, TextImportCreate, UrlImportCreate
 from app.services.html_extraction import HtmlExtractionError
@@ -67,7 +68,8 @@ async def create_url_import(
     try:
         import_record = await service.create_url_import(url=payload.url)
     except (UrlValidationError, UrlFetchError, UrlImportError, HtmlExtractionError, PdfExtractionError) as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+        detail = sanitize_error_message(str(exc), fallback="URL import failed")
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail) from exc
     return ImportDetailRead.model_validate(import_record)
 
 

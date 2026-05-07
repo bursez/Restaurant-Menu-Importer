@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.errors import sanitize_error_message
 from app.db.models import ExtractedMenu, Import, ImportEvent
 from app.domain.imports import ImportInputType, ImportStatus, ValidationStatus
 from app.repositories.imports import ImportRepository
@@ -334,18 +335,19 @@ class ImportService:
                 source_label=import_record.source_filename,
             )
         except MenuExtractionError as exc:
+            error_message = sanitize_error_message(str(exc), fallback="Menu extraction failed")
             import_record = await self.get_import(import_id)
             await self.repository.update_import_status(
                 import_record,
                 status=ImportStatus.FAILED,
-                error_message=str(exc),
+                error_message=error_message,
                 model_used=self.menu_extraction_service.adapter.model,
             )
             await self.repository.add_event(
                 import_record,
                 stage="ai_extraction",
                 message="Menu extraction failed",
-                event_metadata={"error": str(exc)},
+                event_metadata={"error": error_message},
             )
             await self.session.commit()
             return await self.get_import(import_id)

@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     gemini_request_timeout_seconds: float = 30.0
     gemini_max_retries: int = 2
     gemini_min_confidence: float = 0.55
+    log_level: str = "INFO"
+    request_id_header: str = "X-Request-ID"
+    rate_limit_enabled: bool = False
+    rate_limit_requests: int = 120
+    rate_limit_window_seconds: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",
