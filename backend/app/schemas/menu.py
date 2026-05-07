@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class MenuSourceType(StrEnum):
@@ -77,7 +77,7 @@ class MenuCategory(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1)
-    items: list[MenuItem] = Field(default_factory=list)
+    items: list[MenuItem] = Field(default_factory=list, min_length=1)
 
 
 class CanonicalMenu(BaseModel):
@@ -87,7 +87,7 @@ class CanonicalMenu(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     language: str | None = Field(default=None, min_length=2, max_length=16)
     source: MenuSource
-    categories: list[MenuCategory] = Field(default_factory=list)
+    categories: list[MenuCategory] = Field(default_factory=list, min_length=1)
     confidence_score: float | None = Field(default=None, ge=0, le=1)
     validation_warnings: list[ValidationWarning] = Field(default_factory=list)
 
@@ -100,6 +100,13 @@ class CanonicalMenu(BaseModel):
     @classmethod
     def language_is_lowercase(cls, value: str | None) -> str | None:
         return value.lower() if value is not None else value
+
+    @model_validator(mode="after")
+    def menu_must_have_extractable_items(self) -> "CanonicalMenu":
+        if not any(category.items for category in self.categories):
+            msg = "Menu must include at least one extracted item"
+            raise ValueError(msg)
+        return self
 
 
 GeminiCanonicalMenu = CanonicalMenu
