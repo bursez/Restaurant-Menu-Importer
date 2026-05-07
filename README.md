@@ -154,6 +154,7 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 7 work lives on `feature/07-gemini-extraction`.
 - Milestone 8 work lives on `feature/08-results-export-ui`.
 - Milestone 9 work lives on `feature/09-evaluation-dashboard`.
+- Milestone 10 work lives on `codex/milestone-10-security-reliability`.
 
 ## Milestone 10 Scope
 
