@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     rate_limit_enabled: bool = False
     rate_limit_requests: int = 120
     rate_limit_window_seconds: int = 60
+    url_extraction_timeout_seconds: float = 30.0
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -60,6 +60,12 @@ APP_RATE_LIMIT_REQUESTS=120
 APP_RATE_LIMIT_WINDOW_SECONDS=60
 ```
 
+URL content extraction is also bounded independently of fetch and Gemini request timeouts:
+
+```sh
+APP_URL_EXTRACTION_TIMEOUT_SECONDS=30
+```
+
 Gemini credentials are backend-only settings. Use `APP_GEMINI_API_KEY` on the backend service or local backend process; do not expose it through `VITE_` frontend environment variables.
 
 PDF URL imports are detected from `Content-Type: application/pdf` or the PDF file signature. Text-layer PDFs are extracted with PyMuPDF into `[Page N]` sections. Sparse or layout-sensitive text can fall back to pdfplumber, and empty-text PDFs use OCRmyPDF/Tesseract OCR. Repeated headers, footers, legends, and legal/allergen lines are removed when they repeat across pages.
@@ -210,6 +216,7 @@ Included:
 - README accuracy methodology and known limitations
 - Request ID middleware and structured JSON request logging
 - Optional in-memory rate limiting hooks, disabled by default
+- URL extraction timeout around HTML/PDF processing
 - Sanitized stored import errors for extraction failures
 - Sanitized URL-import error responses
 - Backend-only Gemini secret configuration in Compose and docs

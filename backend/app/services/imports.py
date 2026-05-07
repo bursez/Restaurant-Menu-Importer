@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -19,7 +21,7 @@ from app.services.menu_extraction import MenuExtractionError, MenuExtractionServ
 from app.services.menu_validation import validate_canonical_menu
 from app.services.pdf_extraction import extract_pdf_text
 from app.services.text_imports import normalize_import_text
-from app.services.url_fetching import fetch_url, is_html_response, is_pdf_response
+from app.services.url_fetching import FetchedUrl, fetch_url, is_html_response, is_pdf_response
 
 
 class UrlImportError(ValueError):
@@ -32,6 +34,14 @@ class ImportNotFoundError(Exception):
 
 class ExtractedMenuNotFoundError(Exception):
     pass
+
+
+@dataclass(frozen=True)
+class UrlSourceExtraction:
+    source_text: str
+    pdf_links: list[str]
+    extract_message: str
+    extract_metadata: dict[str, Any]
 
 
 class ImportService:
@@ -123,38 +133,11 @@ class ImportService:
 
     async def create_url_import(self, *, url: str) -> Import:
         fetched_url = await fetch_url(url)
-
-        pdf_links: list[str] = []
-        extract_message: str
-        extract_metadata: dict[str, Any]
-        if is_html_response(fetched_url):
-            extraction = extract_html_text(fetched_url.content)
-            source_text = extraction.text
-            pdf_links = discover_pdf_links(fetched_url.content, base_url=fetched_url.final_url)
-            extract_message = "HTML menu text extracted"
-            extract_metadata = {
-                "character_count": len(source_text),
-                "line_count": source_text.count("\n") + 1,
-                "title": extraction.title,
-                "pdf_links": pdf_links,
-            }
-        elif is_pdf_response(fetched_url):
-            extraction = extract_pdf_text(fetched_url.content)
-            source_text = extraction.text
-            extract_message = "PDF menu text extracted"
-            extract_metadata = {
-                "character_count": extraction.character_count,
-                "line_count": source_text.count("\n") + 1,
-                "page_count": extraction.page_count,
-                "method": extraction.method,
-                "warnings": extraction.warnings,
-            }
-        else:
-            raise UrlImportError("Only HTML menu pages and PDF menu URLs are supported")
+        extraction = await extract_fetched_url_source(fetched_url)
 
         import_record = await self.repository.create_import(
             input_type=ImportInputType.URL,
-            source_value=source_text,
+            source_value=extraction.source_text,
             source_filename=fetched_url.final_url,
             status=ImportStatus.PENDING,
         )
@@ -181,8 +164,8 @@ class ImportService:
         await self.repository.add_event(
             import_record,
             stage="extract",
-            message=extract_message,
-            event_metadata=extract_metadata,
+            message=extraction.extract_message,
+            event_metadata=extraction.extract_metadata,
         )
         await self.session.commit()
         return await self._extract_import(import_record.id)
@@ -385,3 +368,50 @@ def _build_menu_extraction_service() -> MenuExtractionService:
     settings = get_settings()
     adapter = FakeGeminiAdapter() if settings.gemini_use_fake else HttpGeminiAdapter(settings)
     return MenuExtractionService(adapter=adapter, settings=settings)
+
+
+async def extract_fetched_url_source(fetched_url: FetchedUrl) -> UrlSourceExtraction:
+    timeout_seconds = get_settings().url_extraction_timeout_seconds
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_extract_fetched_url_source_sync, fetched_url),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError as exc:
+        raise UrlImportError("URL extraction timed out") from exc
+
+
+def _extract_fetched_url_source_sync(fetched_url: FetchedUrl) -> UrlSourceExtraction:
+    if is_html_response(fetched_url):
+        extraction = extract_html_text(fetched_url.content)
+        source_text = extraction.text
+        pdf_links = discover_pdf_links(fetched_url.content, base_url=fetched_url.final_url)
+        return UrlSourceExtraction(
+            source_text=source_text,
+            pdf_links=pdf_links,
+            extract_message="HTML menu text extracted",
+            extract_metadata={
+                "character_count": len(source_text),
+                "line_count": source_text.count("\n") + 1,
+                "title": extraction.title,
+                "pdf_links": pdf_links,
+            },
+        )
+
+    if is_pdf_response(fetched_url):
+        extraction = extract_pdf_text(fetched_url.content)
+        source_text = extraction.text
+        return UrlSourceExtraction(
+            source_text=source_text,
+            pdf_links=[],
+            extract_message="PDF menu text extracted",
+            extract_metadata={
+                "character_count": extraction.character_count,
+                "line_count": source_text.count("\n") + 1,
+                "page_count": extraction.page_count,
+                "method": extraction.method,
+                "warnings": extraction.warnings,
+            },
+        )
+
+    raise UrlImportError("Only HTML menu pages and PDF menu URLs are supported")
