@@ -150,6 +150,30 @@ def test_invalid_generated_json_is_rejected_with_useful_errors() -> None:
     assert "unexpected" in error_text
 
 
+def test_malformed_menu_structure_is_not_normalized_into_valid_output() -> None:
+    with pytest.raises(ValidationError) as error:
+        validate_canonical_menu(
+            {
+                "restaurant": "Broken",
+                "source": {"type": "text", "value": "raw"},
+                "categories": [{"name": "Pizze", "items": "Margherita 7"}],
+            }
+        )
+
+    assert "items" in str(error.value)
+
+
+def test_menu_without_items_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="at least 1"):
+        validate_canonical_menu(
+            {
+                "restaurant": "Broken",
+                "source": {"type": "text", "value": "raw"},
+                "categories": [{"name": "Empty", "items": []}],
+            }
+        )
+
+
 def test_gemini_schema_is_generated_from_canonical_menu() -> None:
     schema = gemini_menu_json_schema()
 

@@ -1,6 +1,6 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 9 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, direct PDF menu URL imports, Gemini structured extraction, editable/exportable canonical JSON, and a fixture-backed evaluation dashboard for the required 5 reference menus plus a 10-menu qualitative set.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 10 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, direct PDF menu URL imports, Gemini structured extraction, editable/exportable canonical JSON, fixture-backed evaluation, and security/reliability controls for URL imports, validation, logging, sanitized errors, backend-only secrets, and optional rate limiting.
 
 ## Stack
 
@@ -49,6 +49,24 @@ Imports are persisted, processed through Gemini extraction, validated against th
 The frontend renders completed imports as category-grouped dish tables with prices, descriptions, tags, allergens, variants, validation warnings, and an editable canonical JSON view. Edited JSON is checked in the browser with a Zod schema that mirrors the backend Pydantic schema, then saved through the backend for final validation and persistence.
 
 URL imports reject localhost, private/internal network targets, link-local addresses, metadata IPs, unsupported schemes, and credentialed URLs. The fetcher follows a small number of validated redirects, enforces timeouts and response size limits, and stores cleaned HTML or PDF text as the import source. Likely PDF menu links discovered inside HTML pages are recorded in import event metadata.
+
+Every backend request receives an `X-Request-ID` response header. Incoming valid request IDs are preserved; otherwise the API generates one and includes it in structured JSON logs with method, path, status, duration, and client host. Import errors stored in the database and returned for URL-import failures are sanitized to avoid leaking local paths, URL credentials, tokens, or API keys.
+
+Rate limiting hooks are wired into the backend and disabled by default for local development. Enable them with:
+
+```sh
+APP_RATE_LIMIT_ENABLED=true
+APP_RATE_LIMIT_REQUESTS=120
+APP_RATE_LIMIT_WINDOW_SECONDS=60
+```
+
+URL content extraction is also bounded independently of fetch and Gemini request timeouts:
+
+```sh
+APP_URL_EXTRACTION_TIMEOUT_SECONDS=30
+```
+
+Gemini credentials are backend-only settings. Use `APP_GEMINI_API_KEY` on the backend service or local backend process; do not expose it through `VITE_` frontend environment variables.
 
 PDF URL imports are detected from `Content-Type: application/pdf` or the PDF file signature. Text-layer PDFs are extracted with PyMuPDF into `[Page N]` sections. Sparse or layout-sensitive text can fall back to pdfplumber, and empty-text PDFs use OCRmyPDF/Tesseract OCR. Repeated headers, footers, legends, and legal/allergen lines are removed when they repeat across pages.
 
@@ -142,8 +160,9 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 7 work lives on `feature/07-gemini-extraction`.
 - Milestone 8 work lives on `feature/08-results-export-ui`.
 - Milestone 9 work lives on `feature/09-evaluation-dashboard`.
+- Milestone 10 work lives on `codex/milestone-10-security-reliability`.
 
-## Milestone 9 Scope
+## Milestone 10 Scope
 
 Included:
 
@@ -195,6 +214,14 @@ Included:
 - Backend fixture-based evaluation tests
 - Frontend dashboard test coverage
 - README accuracy methodology and known limitations
+- Request ID middleware and structured JSON request logging
+- Optional in-memory rate limiting hooks, disabled by default
+- URL extraction timeout around HTML/PDF processing
+- Sanitized stored import errors for extraction failures
+- Sanitized URL-import error responses
+- Backend-only Gemini secret configuration in Compose and docs
+- Deterministic validation that rejects empty item output and malformed category/item structures
+- Backend tests for request IDs, rate limiting hooks, sanitized errors, and stricter validation
 
 Not included yet:
 

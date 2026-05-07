@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import socket
+import time
 
 import httpx
 from httpx import ASGITransport, AsyncClient
 import pytest
 
 from app.services import url_fetching
+from app.core.config import Settings
 from app.services.html_extraction import discover_pdf_links, extract_html_text
 from app.services.url_fetching import FetchedUrl, fetch_url, is_html_response
 from app.services.url_security import UrlValidationError, validate_public_url, validate_url_format
@@ -154,3 +156,34 @@ async def test_create_url_import_rejects_internal_url(app) -> None:
 
     assert response.status_code == 422
     assert response.json() == {"detail": "Private or internal URLs are not allowed"}
+
+
+@pytest.mark.asyncio
+async def test_create_url_import_times_out_slow_extraction(app, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_fetch_url(url: str) -> FetchedUrl:
+        return FetchedUrl(
+            requested_url=url,
+            final_url=url,
+            content=b"<html><body>Menu</body></html>",
+            content_type="text/html",
+            status_code=200,
+            redirect_count=0,
+        )
+
+    def slow_extract_source(fetched_url: FetchedUrl):
+        time.sleep(0.05)
+        return None
+
+    monkeypatch.setattr("app.services.imports.fetch_url", fake_fetch_url)
+    monkeypatch.setattr("app.services.imports._extract_fetched_url_source_sync", slow_extract_source)
+    monkeypatch.setattr(
+        "app.services.imports.get_settings",
+        lambda: Settings(gemini_use_fake=True, url_extraction_timeout_seconds=0.01),
+    )
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post("/api/imports/url", json={"url": "https://restaurant.example/menu"})
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "URL extraction timed out"}

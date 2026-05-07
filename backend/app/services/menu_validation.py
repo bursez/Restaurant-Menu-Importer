@@ -26,18 +26,26 @@ def validate_canonical_menu(raw_menu: dict[str, Any]) -> CanonicalMenu:
 def normalize_menu_structure(raw_menu: dict[str, Any]) -> dict[str, Any]:
     menu = deepcopy(raw_menu)
     _cleanup_menu_text(menu)
-    menu["categories"] = _deduplicate_categories(_list_of_dicts(menu.get("categories")))
+    categories = menu.get("categories")
+    if isinstance(categories, list) and all(isinstance(category, dict) for category in categories):
+        menu["categories"] = _deduplicate_categories(categories)
     return menu
 
 
 def normalize_menu_prices(raw_menu: dict[str, Any]) -> dict[str, Any]:
     menu = deepcopy(raw_menu)
     for category in _list_of_dicts(menu.get("categories")):
-        for item in _list_of_dicts(category.get("items")):
+        items = category.get("items")
+        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+            continue
+        for item in items:
             _normalize_price_fields(item)
             if item.get("price") is None and item.get("price_text"):
                 _build_variants_from_price_text(item)
-            for variant in _list_of_dicts(item.get("variants")):
+            variants = item.get("variants")
+            if not isinstance(variants, list) or not all(isinstance(variant, dict) for variant in variants):
+                continue
+            for variant in variants:
                 _normalize_price_fields(variant)
     return menu
 
@@ -74,15 +82,25 @@ def _cleanup_menu_text(menu: dict[str, Any]) -> None:
     if isinstance(source, dict):
         _clean_string_field(source, "value")
 
-    for category in _list_of_dicts(menu.get("categories")):
+    categories = menu.get("categories")
+    if not isinstance(categories, list) or not all(isinstance(category, dict) for category in categories):
+        return
+
+    for category in categories:
         _clean_string_field(category, "name")
-        for item in _list_of_dicts(category.get("items")):
+        items = category.get("items")
+        if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+            continue
+        for item in items:
             _clean_string_field(item, "name")
             _clean_string_field(item, "description")
             _clean_string_field(item, "price_text")
             item["allergens"] = _clean_string_list(item.get("allergens"))
             item["tags"] = _clean_string_list(item.get("tags"))
-            for variant in _list_of_dicts(item.get("variants")):
+            variants = item.get("variants")
+            if not isinstance(variants, list) or not all(isinstance(variant, dict) for variant in variants):
+                continue
+            for variant in variants:
                 _clean_string_field(variant, "name")
                 _clean_string_field(variant, "price_text")
 
@@ -93,7 +111,9 @@ def _deduplicate_categories(categories: list[dict[str, Any]]) -> list[dict[str, 
         key = _dedupe_key(category.get("name"))
         if not key:
             continue
-        category["items"] = _deduplicate_items(_list_of_dicts(category.get("items")))
+        items = category.get("items")
+        if isinstance(items, list) and all(isinstance(item, dict) for item in items):
+            category["items"] = _deduplicate_items(items)
         if key not in deduped:
             deduped[key] = category
             continue
