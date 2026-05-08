@@ -65,8 +65,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             "method": request.method,
             "path": request.url.path,
             "status_code": status_code,
-            "duration_ms": duration_ms
-            if duration_ms is not None
-            else round((time.perf_counter() - started) * 1000, 2),
+            "duration_ms": duration_ms if duration_ms is not None else round((time.perf_counter() - started) * 1000, 2),
             "client_host": client_host,
         }

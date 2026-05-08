@@ -102,7 +102,7 @@ class CanonicalMenu(BaseModel):
         return value.lower() if value is not None else value
 
     @model_validator(mode="after")
-    def menu_must_have_extractable_items(self) -> "CanonicalMenu":
+    def menu_must_have_extractable_items(self) -> CanonicalMenu:
         if not any(category.items for category in self.categories):
             msg = "Menu must include at least one extracted item"
             raise ValueError(msg)

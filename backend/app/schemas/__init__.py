@@ -1,4 +1,5 @@
 """API schema package."""
+
 from app.schemas.menu import (
     CanonicalMenu,
     MenuCategory,

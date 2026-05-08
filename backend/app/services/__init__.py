@@ -1,4 +1,5 @@
 """Service package."""
+
 from app.services.menu_schema import gemini_menu_json_schema
 from app.services.menu_validation import (
     normalize_menu_prices,

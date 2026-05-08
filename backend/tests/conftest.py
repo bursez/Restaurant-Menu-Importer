@@ -37,7 +37,9 @@ async def db_session(test_database_url: str) -> AsyncIterator[AsyncSession]:
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as session:
         await session.execute(
-            text("TRUNCATE evaluation_runs, evaluation_cases, import_events, extracted_menus, imports RESTART IDENTITY CASCADE")
+            text(
+                "TRUNCATE evaluation_runs, evaluation_cases, import_events, extracted_menus, imports RESTART IDENTITY CASCADE"
+            )
         )
         await session.commit()
         yield session
