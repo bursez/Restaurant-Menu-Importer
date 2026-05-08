@@ -44,15 +44,17 @@ async def test_fetch_url_handles_redirects_and_content_metadata(monkeypatch: pyt
         return url
 
     transport = httpx.MockTransport(
-        lambda request: httpx.Response(
-            302,
-            headers={"Location": "https://restaurant.example/menu"},
-        )
-        if str(request.url) == "https://restaurant.example"
-        else httpx.Response(
-            200,
-            headers={"Content-Type": "text/html; charset=utf-8"},
-            content=b"<html><body>Menu</body></html>",
+        lambda request: (
+            httpx.Response(
+                302,
+                headers={"Location": "https://restaurant.example/menu"},
+            )
+            if str(request.url) == "https://restaurant.example"
+            else httpx.Response(
+                200,
+                headers={"Content-Type": "text/html; charset=utf-8"},
+                content=b"<html><body>Menu</body></html>",
+            )
         ),
     )
 

@@ -65,12 +65,16 @@ def _page_text(page_number: int, text: str) -> PdfPageText:
     )
 
 
-def _result_from_pages(*, pages: list[PdfPageText], method: str, warnings: list[str] | None = None) -> PdfExtractionResult:
+def _result_from_pages(
+    *, pages: list[PdfPageText], method: str, warnings: list[str] | None = None
+) -> PdfExtractionResult:
     cleaned_pages, cleanup_warnings = clean_repeated_pdf_chrome(pages)
     if not cleaned_pages:
         raise PdfExtractionError("PDF text was removed during cleanup")
     text = normalize_import_text(_format_pages(cleaned_pages))
-    return PdfExtractionResult(text=text, pages=cleaned_pages, method=method, warnings=[*(warnings or []), *cleanup_warnings])
+    return PdfExtractionResult(
+        text=text, pages=cleaned_pages, method=method, warnings=[*(warnings or []), *cleanup_warnings]
+    )
 
 
 def clean_repeated_pdf_chrome(pages: list[PdfPageText]) -> tuple[list[PdfPageText], list[str]]:
@@ -174,7 +178,9 @@ def _ocr_pdf_with_tesseract(pdf_content: bytes) -> PdfExtractionResult:
 
     if not pages:
         raise PdfExtractionError("OCR did not find extractable text")
-    return _result_from_pages(pages=pages, method="tesseract-ocr", warnings=["PDF text layer was empty; OCR fallback used"])
+    return _result_from_pages(
+        pages=pages, method="tesseract-ocr", warnings=["PDF text layer was empty; OCR fallback used"]
+    )
 
 
 def _ocr_pdf_with_ocrmypdf(pdf_content: bytes) -> PdfExtractionResult:

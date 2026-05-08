@@ -498,8 +498,7 @@ export function App() {
     }
   }
 
-  const canSubmit =
-    mode === "text" ? text.trim().length > 0 : mode === "file" ? file !== null : url.trim().length > 0;
+  const canSubmit = mode === "text" ? text.trim().length > 0 : mode === "file" ? file !== null : url.trim().length > 0;
 
   return (
     <main className="app-shell">
@@ -601,7 +600,12 @@ export function App() {
           ) : (
             <div className="field-stack">
               <label htmlFor="menu-file">Menu file</label>
-              <input id="menu-file" accept=".txt,.md,text/plain,text/markdown" onChange={handleFileChange} type="file" />
+              <input
+                id="menu-file"
+                accept=".txt,.md,text/plain,text/markdown"
+                onChange={handleFileChange}
+                type="file"
+              />
               {file ? <p className="file-name">{file.name}</p> : null}
             </div>
           )}

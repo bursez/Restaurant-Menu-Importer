@@ -377,7 +377,7 @@ async def extract_fetched_url_source(fetched_url: FetchedUrl) -> UrlSourceExtrac
             asyncio.to_thread(_extract_fetched_url_source_sync, fetched_url),
             timeout=timeout_seconds,
         )
-    except asyncio.TimeoutError as exc:
+    except TimeoutError as exc:
         raise UrlImportError("URL extraction timed out") from exc
 
 
@@ -399,18 +399,18 @@ def _extract_fetched_url_source_sync(fetched_url: FetchedUrl) -> UrlSourceExtrac
         )
 
     if is_pdf_response(fetched_url):
-        extraction = extract_pdf_text(fetched_url.content)
-        source_text = extraction.text
+        pdf_extraction = extract_pdf_text(fetched_url.content)
+        source_text = pdf_extraction.text
         return UrlSourceExtraction(
             source_text=source_text,
             pdf_links=[],
             extract_message="PDF menu text extracted",
             extract_metadata={
-                "character_count": extraction.character_count,
+                "character_count": pdf_extraction.character_count,
                 "line_count": source_text.count("\n") + 1,
-                "page_count": extraction.page_count,
-                "method": extraction.method,
-                "warnings": extraction.warnings,
+                "page_count": pdf_extraction.page_count,
+                "method": pdf_extraction.method,
+                "warnings": pdf_extraction.warnings,
             },
         )
 

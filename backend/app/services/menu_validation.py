@@ -140,7 +140,9 @@ def _merge_item(existing: dict[str, Any], duplicate: dict[str, Any]) -> dict[str
     for field in ("description", "price_text", "price"):
         if existing.get(field) in (None, "") and duplicate.get(field) not in (None, ""):
             existing[field] = duplicate[field]
-    existing["allergens"] = _clean_string_list([*_raw_list(existing.get("allergens")), *_raw_list(duplicate.get("allergens"))])
+    existing["allergens"] = _clean_string_list(
+        [*_raw_list(existing.get("allergens")), *_raw_list(duplicate.get("allergens"))]
+    )
     existing["tags"] = _clean_string_list([*_raw_list(existing.get("tags")), *_raw_list(duplicate.get("tags"))])
     variants = [*_list_of_dicts(existing.get("variants")), *_list_of_dicts(duplicate.get("variants"))]
     existing["variants"] = _deduplicate_variants(variants)

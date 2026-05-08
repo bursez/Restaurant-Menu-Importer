@@ -5,7 +5,7 @@ from urllib.parse import urljoin
 
 import httpx
 
-from app.services.url_security import UrlValidationError, validate_public_url
+from app.services.url_security import validate_public_url
 
 
 MAX_FETCH_BYTES = 2_000_000

@@ -1,9 +1,24 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import TypedDict
 
 
-EVALUATION_CASES = [
+class EvaluationCaseSeed(TypedDict):
+    slug: str
+    name: str
+    source_url: str
+    case_set: str
+    source_fixture_path: str | None
+    expected_fixture_path: str | None
+    actual_fixture_path: str | None
+    qualitative_score: Decimal | None
+    strengths: str
+    weaknesses: str
+    notes: str
+
+
+EVALUATION_CASES: list[EvaluationCaseSeed] = [
     {
         "slug": "re-sale",
         "name": "Re Sale",

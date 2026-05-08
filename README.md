@@ -1,13 +1,13 @@
 # Restaurant Menu Importer
 
-Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 10 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, direct PDF menu URL imports, Gemini structured extraction, editable/exportable canonical JSON, fixture-backed evaluation, and security/reliability controls for URL imports, validation, logging, sanitized errors, backend-only secrets, and optional rate limiting.
+Dockerized web application foundation for extracting structured JSON from restaurant menu content. Milestone 11 supports pasted text, `.txt` / `.md` uploads, public HTML menu page imports, direct PDF menu URL imports, Gemini structured extraction, editable/exportable canonical JSON, fixture-backed evaluation, security/reliability controls, and required CI/CD checks for pull requests into `dev`.
 
 ## Stack
 
 - Backend: Python 3.12, FastAPI, Pydantic Settings, SQLAlchemy async, Alembic, PyMuPDF, pdfplumber, OCRmyPDF/Tesseract
 - Frontend: Node 22, React, TypeScript, Vite, Vitest, React Testing Library
 - Infrastructure: Docker Compose, PostgreSQL 16
-- CI: GitHub Actions smoke/build checks
+- CI: GitHub Actions quality gates, tests, Docker builds, Compose smoke checks, migrations, and Playwright E2E smoke tests
 
 ## Quickstart
 
@@ -128,6 +128,19 @@ cd backend
 alembic upgrade head
 ```
 
+Backend CI runs these local-equivalent checks:
+
+```sh
+cd backend
+ruff check .
+ruff format --check .
+mypy app tests
+bandit -c pyproject.toml -r app
+pytest --cov=app --cov-report=term-missing
+alembic upgrade head
+alembic check
+```
+
 ## Local Frontend
 
 ```sh
@@ -135,6 +148,8 @@ cd frontend
 npm install
 npm run dev
 npm run test
+npm run lint
+npm run format:check
 npm run build
 ```
 
@@ -145,6 +160,30 @@ VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
 or keep using the Docker Compose setup.
+
+Frontend CI also runs a Playwright smoke test against the Compose stack:
+
+```sh
+cd frontend
+npx playwright install chromium
+npm run e2e
+```
+
+## CI/CD
+
+GitHub Actions runs on every pull request into `dev` and on pushes to `dev`. The required workflow covers:
+
+- Backend linting with Ruff and Ruff format checks.
+- Backend typing with mypy.
+- Backend tests with pytest coverage.
+- Backend security scanning with Bandit.
+- Alembic upgrade and migration drift checks.
+- Frontend linting with ESLint and formatting with Prettier.
+- Frontend unit tests with Vitest.
+- TypeScript validation and Vite production build.
+- Backend and frontend Docker image builds.
+- Docker Compose smoke boot for PostgreSQL, API, and frontend.
+- Playwright E2E smoke coverage against the running Compose stack.
 
 ## Git Workflow Notes
 
@@ -160,9 +199,10 @@ This repository was initialized according to section 17 of the implementation pl
 - Milestone 7 work lives on `feature/07-gemini-extraction`.
 - Milestone 8 work lives on `feature/08-results-export-ui`.
 - Milestone 9 work lives on `feature/09-evaluation-dashboard`.
-- Milestone 10 work lives on `codex/milestone-10-security-reliability`.
+- Milestone 10 is merged into `dev`.
+- Milestone 11 is merged into `dev`.
 
-## Milestone 10 Scope
+## Milestone 11 Scope
 
 Included:
 
@@ -217,6 +257,9 @@ Included:
 - Request ID middleware and structured JSON request logging
 - Optional in-memory rate limiting hooks, disabled by default
 - URL extraction timeout around HTML/PDF processing
+- Required GitHub Actions checks for backend lint, format, types, tests with coverage, security scanning, migration validation, frontend lint, format, unit tests, TypeScript validation, Vite build, Docker image builds, Compose smoke, and Playwright E2E smoke
+- Local backend quality tool configuration for Ruff, mypy, Bandit, and pytest coverage
+- Local frontend quality tool configuration for ESLint, Prettier, and Playwright
 - Sanitized stored import errors for extraction failures
 - Sanitized URL-import error responses
 - Backend-only Gemini secret configuration in Compose and docs

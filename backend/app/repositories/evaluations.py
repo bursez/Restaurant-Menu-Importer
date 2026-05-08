@@ -16,7 +16,9 @@ class EvaluationRepository:
         self.session = session
 
     async def list_cases(self) -> Sequence[EvaluationCase]:
-        result = await self.session.execute(select(EvaluationCase).order_by(EvaluationCase.case_set.desc(), EvaluationCase.name))
+        result = await self.session.execute(
+            select(EvaluationCase).order_by(EvaluationCase.case_set.desc(), EvaluationCase.name)
+        )
         return result.scalars().all()
 
     async def upsert_case(

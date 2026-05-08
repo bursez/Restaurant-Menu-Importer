@@ -4,7 +4,7 @@
 
 Build a fully dockerized web application that accepts restaurant menu content from URLs, pasted text, or uploaded `.txt` / `.md` files, extracts structured menu data with the Google Gemini API, validates the result against a canonical schema, stores import history in PostgreSQL, and lets users inspect, correct, export, and evaluate the generated JSON.
 
-The implementation will be delivered through GitHub pull requests. For each milestone, Codex will branch from `dev`, implement each feature as an individual commit, run the full local and GitHub Actions test suite, open a PR, handle review feedback, merge the PR, and continue from the updated `dev` branch.
+The implementation will be delivered through GitHub pull requests. For each milestone, the implementer will branch from `dev`, implement each feature as an individual commit, run the full local and GitHub Actions test suite, open a PR, handle review feedback, merge the PR, and continue from the updated `dev` branch.
 
 ## 2. Chosen Stack
 
@@ -254,7 +254,7 @@ GitHub Actions will run on every PR into `dev`:
 - Alembic migration check
 - Playwright E2E smoke tests
 
-The workflow must support required checks before merging. Codex will monitor GitHub Actions after each PR is opened, fix failing checks with additional commits, and merge once the PR is green and approved/mergeable.
+The workflow must support required checks before merging. The implementer will monitor GitHub Actions after each PR is opened, fix failing checks with additional commits, and merge once the PR is green and approved/mergeable.
 
 ## 12. Branching and PR Workflow
 
@@ -272,7 +272,7 @@ For every milestone:
 10. Merge the PR after checks pass.
 11. Pull/update `dev` before starting the next milestone.
 
-Codex will handle branch creation, commits, pushes, PR creation, review-feedback fixes, GitHub Actions monitoring, and merges because GitHub access is available.
+The implementer will handle branch creation, commits, pushes, PR creation, review-feedback fixes, GitHub Actions monitoring, and merges because GitHub access is available.
 
 ## 13. Milestones
 

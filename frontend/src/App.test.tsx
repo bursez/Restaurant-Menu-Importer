@@ -277,7 +277,9 @@ describe("App", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Dinner menu/ }));
     const editor = await screen.findByLabelText("Canonical JSON editor");
-    fireEvent.change(editor, { target: { value: JSON.stringify(updatedImport.extracted_menu.canonical_json, null, 2) } });
+    fireEvent.change(editor, {
+      target: { value: JSON.stringify(updatedImport.extracted_menu.canonical_json, null, 2) },
+    });
     await userEvent.click(screen.getByRole("button", { name: "Save JSON" }));
 
     await waitFor(() => {
