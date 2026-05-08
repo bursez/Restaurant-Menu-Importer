@@ -7,11 +7,12 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 5173,
     proxy: {
-      "/api": "http://backend:8000"
-    }
+      "/api": "http://backend:8000",
+    },
   },
   test: {
     environment: "jsdom",
-    globals: true
-  }
+    exclude: ["e2e/**", "node_modules/**", "dist/**"],
+    globals: true,
+  },
 });

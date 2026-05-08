@@ -18,6 +18,8 @@ build/
 node_modules/
 dist/
 .vite/
+playwright-report/
+test-results/
 npm-debug.log*
 
 postgres_data/
