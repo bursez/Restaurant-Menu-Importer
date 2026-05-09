@@ -187,7 +187,7 @@ GitHub Actions runs on every pull request into `dev` and on pushes to `dev`. The
 
 ## Git Workflow Notes
 
-This repository was initialized according to section 17 of the implementation plan:
+This repository follows the milestone workflow described in section 17 of the implementation plan:
 
 - `dev` contains the initial project planning docs.
 - Milestone 1 work lives on `feature/01-bootstrap-docker`.
