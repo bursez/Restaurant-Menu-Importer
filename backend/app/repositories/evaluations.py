@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import EvaluationCase, EvaluationRun
@@ -36,23 +37,37 @@ class EvaluationRepository:
         weaknesses: str,
         notes: str,
     ) -> EvaluationCase:
-        result = await self.session.execute(select(EvaluationCase).where(EvaluationCase.slug == slug))
-        evaluation_case = result.scalar_one_or_none()
-        if evaluation_case is None:
-            evaluation_case = EvaluationCase(slug=slug)
-            self.session.add(evaluation_case)
-        evaluation_case.name = name
-        evaluation_case.source_url = source_url
-        evaluation_case.case_set = case_set
-        evaluation_case.source_fixture_path = source_fixture_path
-        evaluation_case.expected_fixture_path = expected_fixture_path
-        evaluation_case.actual_fixture_path = actual_fixture_path
-        evaluation_case.qualitative_score = qualitative_score
-        evaluation_case.strengths = strengths
-        evaluation_case.weaknesses = weaknesses
-        evaluation_case.notes = notes
-        await self.session.flush()
-        return evaluation_case
+        insert_statement = insert(EvaluationCase).values(
+            slug=slug,
+            name=name,
+            source_url=source_url,
+            case_set=case_set,
+            source_fixture_path=source_fixture_path,
+            expected_fixture_path=expected_fixture_path,
+            actual_fixture_path=actual_fixture_path,
+            qualitative_score=qualitative_score,
+            strengths=strengths,
+            weaknesses=weaknesses,
+            notes=notes,
+        )
+        upsert_statement = insert_statement.on_conflict_do_update(
+            index_elements=[EvaluationCase.slug],
+            set_={
+                "name": insert_statement.excluded.name,
+                "source_url": insert_statement.excluded.source_url,
+                "case_set": insert_statement.excluded.case_set,
+                "source_fixture_path": insert_statement.excluded.source_fixture_path,
+                "expected_fixture_path": insert_statement.excluded.expected_fixture_path,
+                "actual_fixture_path": insert_statement.excluded.actual_fixture_path,
+                "qualitative_score": insert_statement.excluded.qualitative_score,
+                "strengths": insert_statement.excluded.strengths,
+                "weaknesses": insert_statement.excluded.weaknesses,
+                "notes": insert_statement.excluded.notes,
+            },
+        ).returning(EvaluationCase)
+
+        result = await self.session.execute(upsert_statement)
+        return result.scalar_one()
 
     async def create_run(self, *, case_set: str, result: dict[str, Any]) -> EvaluationRun:
         run = EvaluationRun(case_set=case_set, result=result)
