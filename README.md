@@ -31,6 +31,40 @@ Then open:
 
 The frontend uses the Vite `/api` proxy when running in Compose.
 
+## Quick demo without a Gemini API key
+
+For a reproducible evaluator demo, start the application with the deterministic fake Gemini adapter:
+
+```sh
+APP_GEMINI_USE_FAKE=true docker compose up --build
+```
+
+Then open `http://localhost:5173`, select **Pasted text**, and try:
+
+**Source name**
+
+```text
+Trattoria Test
+```
+
+**Menu text**
+
+```text
+Trattoria Test
+
+Antipasti
+Bruschetta al pomodoro € 6,50
+Caprese € 8,00
+
+Primi
+Spaghetti alla carbonara € 13,00
+Risotto ai funghi € 14,00
+```
+
+A successful demo produces two menu categories, structured dish and price data, and validated canonical JSON.
+
+The fake adapter is intended only for deterministic demonstration and automated testing. To exercise the real AI integration, configure a Gemini API key as described in the **Gemini Extraction** section.
+
 ## Import APIs
 
 - `POST /api/imports/text`: create an import from pasted menu text.
